@@ -4,6 +4,8 @@ set -e  # Exit on error
 
 echo "🟢 Starting Ubuntu setup script..."
 
+cd ~
+
 # --- Step 0: Check for required commands ---
 REQUIRED_CMDS=("git" "curl" "unzip")
 
