@@ -4,6 +4,9 @@ set -e  # Exit on error
 
 echo "🟢 Starting ArduPilot SITL setup script..."
 
+sudo apt-get update
+sudo apt-get upgrade -y
+
 cd ~
 git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
 cd ardupilot
