@@ -6,7 +6,7 @@
 # - Java 17
 # - Python 3.7+
 # - DDS instance with pixi support setup (or Python 3.7+)
- 
+# - flatc (FlatBuffers compiler)
 set -e
  
 # Step 1: Setup or update haris repo
@@ -17,17 +17,17 @@ if [[ -d "haris" ]]; then
     echo "Found existing haris git repository. Fetching updates..."
     cd haris
     git fetch
-    git switch xprize_mcs_dev
+    git switch xprize_mcs
     git pull
   else
     echo "Found existing haris folder but it's not a git repository. Removing..."
     rm -rf haris
-    git clone -b xprize_mcs_dev --single-branch https://github.com/SooratiLab/haris.git
+    git clone -b xprize_mcs --single-branch https://github.com/SooratiLab/haris.git
     cd haris
   fi
 else
   echo "Cloning haris repository..."
-  git clone -b xprize_mcs_dev --single-branch https://github.com/SooratiLab/haris.git
+  git clone -b xprize_mcs --single-branch https://github.com/SooratiLab/haris.git
   cd haris
 fi
  
@@ -55,7 +55,9 @@ fi
  
 # Compile FlatBuffers
 python ~/haris/server/scripts/pyDDS/flatbuffers/setup_flatbuffers.py
- 
+# Generate sample data
+python ~/haris/server/scripts/pyDDS/sample_data/generate_sample_data.py
+
 # Step 3: Get Python path
 PYTHON_PATH=$(which python)
  
@@ -69,11 +71,13 @@ else
   sed -i "s|\"pythonPath\": \".*\"|\"pythonPath\": \"$PYTHON_PATH\"|" DDSTest.json
 fi
  
-# Step 6: Final message
-cd ~/haris/server
+# Wrapping up
 echo
 echo "Haris setup complete!"
 echo "Run the following command to start Haris:"
 echo "cd ~/haris/server && java -jar hut.jar 44101 DDSTest.json"
+echo
+echo "If you do not have a DDS instance with pixi support, you can run:"
+echo "cd ~/haris/server && java -jar hut.jar 44101 DDSTest.json dev"
 echo
 echo "Visualize the simulator at: http://127.0.0.1:44101"
