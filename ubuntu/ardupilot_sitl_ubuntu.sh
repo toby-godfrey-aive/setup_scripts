@@ -12,6 +12,7 @@ git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
 cd ardupilot
 Tools/environment_install/install-prereqs-ubuntu.sh -y
 . ~/.profile
+echo "export PATH=$HOME/ardupilot/Tools/autotest:$PATH" >> $HOME/.bashrc
 ./waf configure --board CubeOrange
 ./waf plane
 
