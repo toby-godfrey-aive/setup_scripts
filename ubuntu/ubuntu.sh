@@ -10,7 +10,7 @@ sudo apt-get upgrade -y
 cd ~
 
 # --- Step 0: Check for required commands ---
-REQUIRED_CMDS=("git" "curl" "unzip")
+REQUIRED_CMDS=("git" "curl" "unzip" "openjdk-17-jre" "openjdk-17-jdk")
 
 for CMD in "${REQUIRED_CMDS[@]}"; do
   if ! command -v "$CMD" &> /dev/null; then
