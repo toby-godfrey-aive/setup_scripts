@@ -7,6 +7,8 @@ echo "🟢 Starting Ubuntu setup script..."
 sudo apt-get update
 sudo apt-get upgrade -y
 
+cd ~
+
 # --- Step 0: Check for required commands ---
 REQUIRED_CMDS=("git" "curl" "unzip")
 
