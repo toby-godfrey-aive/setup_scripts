@@ -1,5 +1,5 @@
 #!/bin/bash
- 
+
 # Requirements:
 # - git
 # - pixi
@@ -8,10 +8,16 @@
 # - DDS instance with pixi support setup (or Python 3.7+)
 # - flatc (FlatBuffers compiler)
 set -e
- 
+
+# Check for Homebrew
+if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew not found. Please install it first from https://brew.sh"
+    exit 1
+fi
+
 # Step 1: Setup or update haris repo
 cd ~
- 
+
 if [[ -d "haris" ]]; then
   if [[ -d "haris/.git" ]]; then
     echo "Found existing haris git repository. Fetching updates..."
@@ -30,29 +36,24 @@ else
   git clone -b xprize_mcs --single-branch https://github.com/SooratiLab/haris.git
   cd haris
 fi
- 
+
 # Step 2: Create a Python virtual environment
 mkdir -p ~/python-envs
 cd ~/python-envs
 python3 -m venv hut-dds
 source hut-dds/bin/activate
 pip install eclipse-zenoh flatbuffers
- 
+
 # Step 2.5: Install flatc (FlatBuffers compiler)
 echo "Installing flatc (FlatBuffers compiler)..."
- 
+
 if command -v flatc >/dev/null 2>&1; then
   echo "flatc already installed."
 else
-  if command -v apt >/dev/null 2>&1; then
-    sudo apt update
-    sudo apt install -y flatbuffers-compiler
-  else
-    echo "Please install 'flatc' manually from https://github.com/google/flatbuffers/releases"
-    exit 1
-  fi
+  echo "Installing flatc via Homebrew..."
+  brew install flatbuffers
 fi
- 
+
 # Compile FlatBuffers
 python ~/haris/server/scripts/pyDDS/flatbuffers/setup_flatbuffers.py
 # Generate sample data
@@ -60,17 +61,20 @@ python ~/haris/server/scripts/pyDDS/sample_data/generate_sample_data.py
 
 # Step 3: Get Python path
 PYTHON_PATH=$(which python)
- 
+
 # Step 4: Navigate to the scenarios directory
 cd ~/haris/server/web/scenarios
- 
+
 # Step 5: Replace pythonPath in DDSTest.json
 if command -v jq >/dev/null 2>&1; then
   jq --arg path "$PYTHON_PATH" '.pythonPath = $path' DDSTest.json > tmp.json && mv tmp.json DDSTest.json
 else
-  sed -i "s|\"pythonPath\": \".*\"|\"pythonPath\": \"$PYTHON_PATH\"|" DDSTest.json
+  # Install jq if not present
+  echo "Installing jq via Homebrew..."
+  brew install jq
+  jq --arg path "$PYTHON_PATH" '.pythonPath = $path' DDSTest.json > tmp.json && mv tmp.json DDSTest.json
 fi
- 
+
 # Wrapping up
 echo
 echo "Haris setup complete!"
