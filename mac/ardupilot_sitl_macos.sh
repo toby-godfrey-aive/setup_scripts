@@ -34,7 +34,7 @@ cd ardupilot
 
 # Run the macOS-specific prerequisite installation
 echo "🔧 Installing ArduPilot prerequisites for macOS..."
-Tools/environment_install/install-prereqs-macos.sh -y
+Tools/environment_install/install-prereqs-mac.sh -y
 
 # Source the updated environment
 if [[ -f ~/.zshrc ]]; then
