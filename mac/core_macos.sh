@@ -85,7 +85,7 @@ else
   ZENOH_ARCH="x86_64-apple-darwin"
 fi
 
-ZENOH_URL="https://www.eclipse.org/downloads/download.php?file=/zenoh/zenoh/latest/zenoh-1.5.0-${ZENOH_ARCH}-standalone.zip&mirror_id=1260"
+ZENOH_URL="https://www.eclipse.org/downloads/download.php?file=/zenoh/zenoh/latest/zenoh-1.5.0-x86_64-unknown-linux-gnu-standalone.zip&mirror_id=1260"
 
 if [ -f "$ZENOH_BIN" ]; then
   echo "✅ zenohd already exists at $ZENOH_BIN. Skipping download."
