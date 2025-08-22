@@ -108,7 +108,32 @@ echo "🐍 Using Python command: $PYTHON_CMD"
 # Install Python packages needed for ArduPilot
 echo "🐍 Installing Python dependencies..."
 $PYTHON_CMD -m pip install --user --upgrade pip setuptools wheel
-$PYTHON_CMD -m pip install --user empy==3.3.4 pyserial pymavlink future lxml
+
+# Essential ArduPilot SITL dependencies
+PYTHON_PACKAGES=(
+    "empy==3.3.4"
+    "pyserial"
+    "pymavlink"
+    "future"
+    "lxml"
+    "pexpect"
+    "argparse"
+    "matplotlib"
+    "numpy"
+    "psutil"
+    "intelhex"
+    "geocoder"
+    "requests"
+    "paramiko"
+    "ptyprocess"
+    "pynmea2"
+)
+
+echo "📦 Installing Python packages for ArduPilot SITL..."
+for package in "${PYTHON_PACKAGES[@]}"; do
+    echo "  Installing $package..."
+    $PYTHON_CMD -m pip install --user "$package"
+done
 
 # Optional: Install MAVProxy for ground control
 echo "🚁 Installing MAVProxy (optional ground control software)..."
