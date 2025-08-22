@@ -61,7 +61,7 @@ done
 # --- Step 3: Download zenohd router ---
 ZENOH_DIR="zenoh"
 ZENOH_BIN="${ZENOH_DIR}/zenohd"
-ZENOH_URL="https://www.eclipse.org/downloads/download.php?file=/zenoh/zenoh/latest/zenoh-1.5.0-x86_64-unknown-linux-gnu-standalone.zip&mirror_id=1260"
+ZENOH_URL="https://download.eclipse.org/zenoh/zenoh/latest/zenoh-1.5.0-x86_64-unknown-linux-gnu-standalone.zip"
 
 if [ -f "$ZENOH_BIN" ]; then
   echo "✅ zenohd already exists at $ZENOH_BIN. Skipping download."
