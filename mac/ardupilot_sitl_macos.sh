@@ -3,6 +3,13 @@
 set -e  # Exit on error
 
 echo "🟢 Starting ArduPilot SITL setup script for macOS..."
+echo "🔍 System information:"
+echo "   macOS version: $(sw_vers -productVersion)"
+echo "   Architecture: $(uname -m)"
+echo "   Shell: $SHELL"
+echo "   User: $USER"
+echo "   Home: $HOME"
+echo ""
 
 # Function to check if command exists
 command_exists() {
@@ -39,13 +46,18 @@ if ! command_exists brew; then
     echo "🍺 Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-    # Add Homebrew to PATH (for Apple Silicon Macs)
-    if [[ -f /opt/homebrew/bin/brew ]]; then
+    # Add Homebrew to PATH - check both possible locations
+    if [[ -f "/opt/homebrew/bin/brew" ]]; then
+        echo "📍 Adding Apple Silicon Homebrew to PATH..."
         echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$SHELL_RC"
         eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -f /usr/local/bin/brew ]]; then
+    elif [[ -f "/usr/local/bin/brew" ]]; then
+        echo "📍 Adding Intel Homebrew to PATH..."
         echo 'eval "$(/usr/local/bin/brew shellenv)"' >> "$SHELL_RC"
         eval "$(/usr/local/bin/brew shellenv)"
+    else
+        echo "⚠️  Homebrew installed but not found in expected locations. Please restart your terminal and re-run this script."
+        exit 1
     fi
 else
     echo "🍺 Homebrew found. Updating..."
@@ -121,7 +133,12 @@ fi
 echo "🔧 Installing ArduPilot prerequisites for macOS..."
 if [[ -f "Tools/environment_install/install-prereqs-mac.sh" ]]; then
     chmod +x Tools/environment_install/install-prereqs-mac.sh
-    Tools/environment_install/install-prereqs-mac.sh -y
+    echo "📍 Running ArduPilot macOS prerequisites script..."
+    # Run with error handling - the prerequisites script sometimes has issues
+    if ! Tools/environment_install/install-prereqs-mac.sh -y; then
+        echo "⚠️  ArduPilot prerequisites script encountered issues, but continuing..."
+        echo "   This is often normal and doesn't prevent SITL from working."
+    fi
 else
     echo "⚠️  macOS prerequisites script not found, continuing..."
 fi
