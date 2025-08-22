@@ -54,6 +54,7 @@ for REPO_URL in "${REPOS[@]}"; do
 
   echo "📦 Installing dependencies in $REPO_NAME..."
   cd "$REPO_NAME"
+  git submodule update --init --recursive
   pixi install
   cd ..
 done
