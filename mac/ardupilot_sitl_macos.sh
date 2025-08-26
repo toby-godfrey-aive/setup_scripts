@@ -194,6 +194,8 @@ install_brew_packages() {
     # Install ARM GCC with fallback methods
     install_gcc_arm
 
+    cd $HOME
+
     local packages=(
         "gawk"
         "python"
