@@ -93,9 +93,11 @@ for package in "${BREW_PACKAGES[@]}"; do
     fi
 done
 
-# Ensure Python 3.11 is in PATH
-if command_exists python3.11; then
-    PYTHON_CMD="python3.11"
+# Ensure Python 3.11 is in PATH (prefer Homebrew’s version)
+if command_exists /opt/homebrew/bin/python3.11; then
+    PYTHON_CMD="/opt/homebrew/bin/python3.11"
+elif command_exists /usr/local/bin/python3.11; then
+    PYTHON_CMD="/usr/local/bin/python3.11"
 elif command_exists python3; then
     PYTHON_CMD="python3"
 else
@@ -103,21 +105,19 @@ else
     exit 1
 fi
 
-echo "🐍 Using Python command: $PYTHON_CMD"
+echo "🐍 Using Python: $($PYTHON_CMD --version)"
 
-# Install Python packages needed for ArduPilot
-echo "🐍 Installing Python dependencies..."
-$PYTHON_CMD -m pip install --user --upgrade pip setuptools wheel
+# Upgrade pip tooling
+$PYTHON_CMD -m pip install --upgrade pip setuptools wheel
 
 # Essential ArduPilot SITL dependencies
 PYTHON_PACKAGES=(
-    "empy==3.3.4"
+    "empy"
     "pyserial"
     "pymavlink"
     "future"
     "lxml"
     "pexpect"
-    "argparse"
     "matplotlib"
     "numpy"
     "psutil"
@@ -125,114 +125,8 @@ PYTHON_PACKAGES=(
     "geocoder"
     "requests"
     "paramiko"
-    "ptyprocess"
     "pynmea2"
 )
 
 echo "📦 Installing Python packages for ArduPilot SITL..."
-for package in "${PYTHON_PACKAGES[@]}"; do
-    echo "  Installing $package..."
-    $PYTHON_CMD -m pip install --user "$package"
-done
-
-# Optional: Install MAVProxy for ground control
-echo "🚁 Installing MAVProxy (optional ground control software)..."
-$PYTHON_CMD -m pip install --user MAVProxy
-
-# Set up ArduPilot directory
-ARDUPILOT_DIR="$HOME/ardupilot"
-
-if [[ -d "$ARDUPILOT_DIR" ]]; then
-    echo "📂 ArduPilot directory already exists. Updating..."
-    cd "$ARDUPILOT_DIR"
-    git pull origin master
-    git submodule update --init --recursive
-else
-    cd "$HOME"
-    echo "📥 Cloning ArduPilot repository..."
-    git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
-    cd ardupilot
-fi
-
-# Run the macOS-specific prerequisite installation
-echo "🔧 Installing ArduPilot prerequisites for macOS..."
-if [[ -f "Tools/environment_install/install-prereqs-mac.sh" ]]; then
-    chmod +x Tools/environment_install/install-prereqs-mac.sh
-    echo "📍 Running ArduPilot macOS prerequisites script..."
-    # Run with error handling - the prerequisites script sometimes has issues
-    if ! Tools/environment_install/install-prereqs-mac.sh -y; then
-        echo "⚠️  ArduPilot prerequisites script encountered issues, but continuing..."
-        echo "   This is often normal and doesn't prevent SITL from working."
-    fi
-else
-    echo "⚠️  macOS prerequisites script not found, continuing..."
-fi
-
-# Add ArduPilot tools to PATH
-echo "🛠️ Adding ArduPilot tools to PATH..."
-TOOLS_PATH_EXPORT="export PATH=\"\$HOME/ardupilot/Tools/autotest:\$PATH\""
-
-# Add to appropriate shell RC file
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$SHELL_RC"
-
-# Also add to common RC files as backup
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.zshrc"
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.bash_profile"
-
-# Export for current session
-export PATH="$HOME/ardupilot/Tools/autotest:$PATH"
-
-# Source the updated environment if possible
-if [[ -f "$SHELL_RC" ]]; then
-    source "$SHELL_RC" 2>/dev/null || true
-fi
-
-# Configure and build
-echo "🔨 Configuring ArduPilot build..."
-cd "$ARDUPILOT_DIR"
-
-# Clean any previous builds
-if [[ -d "build" ]]; then
-    echo "🧹 Cleaning previous build..."
-    ./waf clean
-fi
-
-./waf configure --board sitl
-
-echo "🛠️ Building ArduPilot (this may take a while)..."
-
-# Build multiple vehicle types
-VEHICLES=("plane" "copter" "rover" "sub")
-
-for vehicle in "${VEHICLES[@]}"; do
-    echo "🔨 Building ArduPilot $vehicle..."
-    ./waf "$vehicle"
-done
-
-# Test the installation
-echo "🧪 Testing ArduPilot SITL installation..."
-if command_exists sim_vehicle.py; then
-    echo "✅ sim_vehicle.py found in PATH"
-else
-    echo "⚠️  sim_vehicle.py not found in PATH. You may need to restart your terminal."
-fi
-
-echo ""
-echo "🎉 Setup complete for ArduPilot SITL on macOS!"
-echo ""
-echo "📝 Available commands:"
-echo "  sim_vehicle.py -v ArduPlane    # Fixed-wing aircraft"
-echo "  sim_vehicle.py -v ArduCopter   # Multirotor/helicopter"
-echo "  sim_vehicle.py -v ArduRover    # Ground vehicle"
-echo "  sim_vehicle.py -v ArduSub      # Underwater vehicle"
-echo ""
-echo "📝 Advanced usage examples:"
-echo "  sim_vehicle.py -v ArduPlane --console --map"
-echo "  sim_vehicle.py -v ArduCopter -L KSFO --console"
-echo "  mavproxy.py --master=tcp:127.0.0.1:5760"
-echo ""
-echo "🔄 Please restart your terminal or run 'source $SHELL_RC' to use the new environment."
-echo ""
-echo "📖 For more information, visit:"
-echo "  - ArduPilot SITL docs: https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html"
-echo "  - MAVProxy docs: https://ardupilot.org/mavproxy/"
+$PYTHON_CMD_
