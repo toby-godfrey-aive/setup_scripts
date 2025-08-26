@@ -411,7 +411,7 @@ setup_build_environment() {
 
 wrap_with_venv() {
     local venv_path="$HOME/ardupilot_venv"
-    local function_name="sim_vehicle"
+    local function_name="sim_vehicle_venv"
     local shell_rc_file=""
 
     # Determine the shell RC file
@@ -426,9 +426,9 @@ wrap_with_venv() {
 
     # Define the Bash function to add to the RC file
     local bash_function="
-$function_name () {
+$function_name() {
     source \"$venv_path/bin/activate\"
-    sim_vehicle.py \"\$@\"
+    command sim_vehicle.py \"\$@\"
 }
 "
 
@@ -444,6 +444,7 @@ $function_name () {
     # Inform the user to reload the shell
     info "Please reload your shell with 'source $shell_rc_file' or restart your terminal."
 }
+
 
 
 
