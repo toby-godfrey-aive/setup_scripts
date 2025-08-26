@@ -129,4 +129,55 @@ PYTHON_PACKAGES=(
 )
 
 echo "📦 Installing Python packages for ArduPilot SITL..."
-$PYTHON_CMD_
+$PYTHON_CMD -m pip install "${PYTHON_PACKAGES[@]}"
+
+# Optional: Install MAVProxy globally (not --user)
+echo "🚁 Installing MAVProxy..."
+$PYTHON_CMD -m pip install MAVProxy
+
+# Set up ArduPilot directory
+ARDUPILOT_DIR="$HOME/ardupilot"
+
+if [[ -d "$ARDUPILOT_DIR" ]]; then
+    echo "📂 ArduPilot directory already exists. Updating..."
+    cd "$ARDUPILOT_DIR"
+    git pull origin master
+    git submodule update --init --recursive
+else
+    cd "$HOME"
+    echo "📥 Cloning ArduPilot repository..."
+    git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
+    cd ardupilot
+fi
+
+# Run the macOS-specific prerequisite installation
+echo "🔧 Installing ArduPilot prerequisites for macOS..."
+if [[ -f "Tools/environment_install/install-prereqs-mac.sh" ]]; then
+    chmod +x Tools/environment_install/install-prereqs-mac.sh
+    echo "📍 Running ArduPilot macOS prerequisites script..."
+    # Run with error handling - the prerequisites script sometimes has issues
+    if ! Tools/environment_install/install-prereqs-mac.sh -y; then
+        echo "⚠️  ArduPilot prerequisites script encountered issues, but continuing..."
+        echo "   This is often normal and doesn't prevent SITL from working."
+    fi
+else
+    echo "⚠️  macOS prerequisites script not found, continuing..."
+fi
+
+# Add ArduPilot tools to PATH
+echo "🛠️ Adding ArduPilot tools to PATH..."
+TOOLS_PATH_EXPORT="export PATH=\"\$HOME/ardupilot/Tools/autotest:\$PATH\""
+
+# Add to appropriate shell RC file
+add_to_shell_rc "$TOOLS_PATH_EXPORT" "$SHELL_RC"
+
+# Also add to common RC files as backup
+add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.zshrc"
+add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.bash_profile"
+add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.profile"
+
+echo ""
+echo "✅ ArduPilot SITL setup complete!"
+echo "👉 Open a new terminal or run 'source $SHELL_RC' to update your PATH."
+echo "👉 To start SITL, run something like:"
+echo "     sim_vehicle.py -v ArduCopter -f quad --console --map"
