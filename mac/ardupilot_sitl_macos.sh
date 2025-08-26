@@ -426,7 +426,7 @@ wrap_with_venv() {
 
     # Define the Bash function to add to the RC file
     local bash_function="
-$function_name() {
+$function_name () {
     source \"$venv_path/bin/activate\"
     sim_vehicle.py \"\$@\"
 }
