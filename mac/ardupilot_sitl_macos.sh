@@ -141,7 +141,7 @@ install_gcc_arm() {
         return 0
     fi
     log "Attempting to install gcc-arm-none-eabi via Homebrew..."
-    if brew install gcc-arm-none-eabi 2>/dev/null; then
+    if brew install --cask gcc-arm-embedded 2>/dev/null; then
         success "gcc-arm-none-eabi installed via Homebrew"
         return 0
     fi
