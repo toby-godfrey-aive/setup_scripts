@@ -93,6 +93,13 @@ check_system_requirements() {
     success "macOS version $MACOS_VERSION is supported"
     info "Architecture: $ARCH"
     info "Shell: $SHELL_NAME"
+
+    # Check for Apple Silicon specific notes
+    if [[ "$ARCH" == "arm64" ]]; then
+        info "Apple Silicon (M1/M2) detected - using optimized installation paths"
+    else
+        info "Intel Mac detected - using traditional installation paths"
+    fi
 }
 
 install_xcode_tools() {
@@ -137,11 +144,88 @@ install_homebrew() {
     fi
 }
 
+install_gcc_arm() {
+    info "Installing ARM GCC toolchain..."
+
+    # Method 1: Try homebrew first
+    if brew list gcc-arm-none-eabi &>/dev/null; then
+        info "gcc-arm-none-eabi already installed via Homebrew"
+        return 0
+    fi
+
+    log "Attempting to install gcc-arm-none-eabi via Homebrew..."
+    if brew install gcc-arm-none-eabi 2>/dev/null; then
+        success "gcc-arm-none-eabi installed via Homebrew"
+        return 0
+    fi
+
+    warn "Homebrew installation failed, trying alternative methods..."
+
+    # Method 2: Try ARM's official tap
+    log "Adding ARM's official Homebrew tap..."
+    if brew tap ArmMbed/homebrew-formulae 2>/dev/null; then
+        log "Trying to install from ARM's tap..."
+        if brew install ArmMbed/homebrew-formulae/arm-none-eabi-gcc 2>/dev/null; then
+            success "ARM GCC installed from ARM's official tap"
+            return 0
+        fi
+    fi
+
+    # Method 3: Direct download and install
+    warn "Homebrew methods failed, attempting direct download..."
+    local gcc_version="10.3-2021.10"
+    local download_url=""
+    local install_dir="/opt/gcc-arm-none-eabi"
+
+    if [[ "$ARCH" == "arm64" ]]; then
+        download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac.tar.bz2"
+    else
+        download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac.tar.bz2"
+    fi
+
+    log "Downloading ARM GCC toolchain..."
+    local temp_dir="/tmp/gcc-arm-install"
+    mkdir -p "$temp_dir"
+
+    if curl -L "$download_url" -o "$temp_dir/gcc-arm.tar.bz2"; then
+        log "Extracting ARM GCC toolchain..."
+        cd "$temp_dir"
+
+        if tar -xjf gcc-arm.tar.bz2; then
+            log "Installing to $install_dir..."
+            sudo mkdir -p "$install_dir"
+            local extracted_dir=$(find . -name "gcc-arm-none-eabi-*" -type d | head -1)
+
+            if [[ -n "$extracted_dir" ]]; then
+                sudo cp -R "$extracted_dir"/* "$install_dir/"
+                sudo chmod -R 755 "$install_dir"
+
+                # Add to PATH
+                local gcc_path_export="export PATH=\"$install_dir/bin:\$PATH\""
+                add_to_path "$gcc_path_export" "$(get_shell_rc)"
+
+                # Source immediately
+                export PATH="$install_dir/bin:$PATH"
+
+                success "ARM GCC toolchain installed manually to $install_dir"
+                rm -rf "$temp_dir"
+                return 0
+            fi
+        fi
+    fi
+
+    error "All ARM GCC installation methods failed"
+    rm -rf "$temp_dir"
+    return 1
+}
+
 install_brew_packages() {
     info "Installing required Homebrew packages..."
 
+    # Install ARM GCC with fallback methods
+    install_gcc_arm
+
     local packages=(
-        "gcc-arm-none-eabi"
         "gawk"
         "python@${PYTHON_VERSION}"
         "git"
@@ -169,6 +253,16 @@ install_brew_packages() {
     if brew list binutils &>/dev/null; then
         warn "Removing binutils to prevent build issues on modern macOS..."
         brew uninstall binutils || warn "Failed to remove binutils, continuing..."
+    fi
+
+    # Verify ARM GCC installation
+    if command -v arm-none-eabi-gcc >/dev/null 2>&1; then
+        local gcc_version
+        gcc_version=$(arm-none-eabi-gcc --version | head -1)
+        success "ARM GCC verified: $gcc_version"
+    else
+        error "ARM GCC toolchain not found in PATH after installation"
+        info "You may need to restart your terminal or source your shell config"
     fi
 }
 
@@ -428,7 +522,11 @@ show_usage_instructions() {
     echo -e "   ${BLUE}cd $ARDUPILOT_DIR/ArduPlane${NC}"
     echo -e "   ${BLUE}sim_vehicle.py -v ArduPlane -f plane --console --map${NC}"
     echo ""
-    echo -e "${YELLOW}${BOLD}Rebuilding Firmware:${NC}"
+    echo -e "${YELLOW}${BOLD}Troubleshooting ARM GCC Issues:${NC}"
+    echo -e "${GREEN}•${NC} If ARM GCC not found: ${BLUE}brew install gcc-arm-none-eabi${NC}"
+    echo -e "${GREEN}•${NC} Alternative method: ${BLUE}brew tap ArmMbed/homebrew-formulae && brew install arm-none-eabi-gcc${NC}"
+    echo -e "${GREEN}•${NC} Manual installation: Visit ${BLUE}https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm${NC}"
+    echo ""
     echo -e "${GREEN}•${NC} Clean build: ${BLUE}cd $ARDUPILOT_DIR && ./waf distclean${NC}"
     echo -e "${GREEN}•${NC} Configure: ${BLUE}./waf configure --board $BUILD_TARGET${NC}"
     echo -e "${GREEN}•${NC} Build: ${BLUE}./waf $VEHICLE${NC}"
