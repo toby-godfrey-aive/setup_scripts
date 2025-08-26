@@ -409,10 +409,9 @@ setup_build_environment() {
     fi
 }
 
-alias_with_venv() {
+wrap_with_venv() {
     local venv_path="$HOME/ardupilot_venv"
-    local alias_name="sim_vehicle"
-    local command_to_alias="source $venv_path/bin/activate && sim_vehicle.py"
+    local function_name="sim_vehicle"
     local shell_rc_file=""
 
     # Determine the shell RC file
@@ -421,22 +420,31 @@ alias_with_venv() {
     elif [[ "$SHELL" == *"bash"* ]]; then
         shell_rc_file="$HOME/.bash_profile"
     else
-        warn "Unsupported shell: $SHELL. Adding alias to ~/.profile instead."
+        warn "Unsupported shell: $SHELL. Adding function to ~/.profile instead."
         shell_rc_file="$HOME/.profile"
     fi
 
-    # Check if the alias already exists in the RC file
-    if grep -q "alias $alias_name=" "$shell_rc_file"; then
-        info "Alias '$alias_name' already exists in $shell_rc_file. Skipping..."
+    # Define the Bash function to add to the RC file
+    local bash_function="
+$function_name() {
+    source \"$venv_path/bin/activate\"
+    sim_vehicle.py \"\$@\"
+}
+"
+
+    # Check if the function already exists in the RC file
+    if grep -q "function $function_name" "$shell_rc_file"; then
+        info "Function '$function_name' already exists in $shell_rc_file. Skipping..."
     else
-        # Add the alias to the RC file
-        echo "alias $alias_name=\"$command_to_alias\"" >> "$shell_rc_file"
-        success "Added alias '$alias_name' to $shell_rc_file."
+        # Add the function to the RC file
+        echo "$bash_function" >> "$shell_rc_file"
+        success "Added function '$function_name' to $shell_rc_file."
     fi
 
     # Inform the user to reload the shell
     info "Please reload your shell with 'source $shell_rc_file' or restart your terminal."
 }
+
 
 
 setup_path_environment() {
@@ -573,10 +581,10 @@ main() {
     clone_ardupilot
     run_prereqs_script
     setup_build_environment
-    alias_with_venv
     setup_path_environment
     handle_mojave_specifics
     test_installation
+    wrap_with_venv
     success "ArduPlane CubeOrange build and SITL installation completed successfully!"
     show_usage_instructions
 }
