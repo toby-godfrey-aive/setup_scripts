@@ -201,7 +201,7 @@ install_brew_packages() {
         "ninja"
         "ccache"
         "opencv"
-        "genromfs"
+        # "genromfs"
     )
 
     for package in "${packages[@]}"; do
