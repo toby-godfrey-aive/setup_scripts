@@ -71,7 +71,8 @@ add_to_path() {
         echo "$path_line" >> "$shell_rc"
         success "Added PATH export to $shell_rc"
     elif [[ ! -f "$shell_rc" ]]; then
-        echo "$path_line" > "$shell_rc"
+        touch "$shell_rc"
+        echo "$path_line" >> "$shell_rc"
         success "Created $shell_rc with PATH export"
     else
         info "PATH already configured in $shell_rc"
@@ -283,6 +284,7 @@ setup_python() {
         "pynmea2"
         "wxpython"
         "billiard"
+        "gnureadline"
     )
 
     info "Installing Python packages for ArduPilot..."
