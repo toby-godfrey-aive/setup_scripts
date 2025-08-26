@@ -9,47 +9,35 @@ echo "ℹ User: $USER"
 echo "ℹ Home: $HOME"
 echo ""
 
-# -----------------------------
 # Helpers
-# -----------------------------
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
-
 add_to_shell_rc() {
-    local line="$1"
-    local file="$2"
+    local line="$1"; local file="$2"
     if [[ -f "$file" ]] && ! grep -Fxq "$line" "$file"; then
         echo "$line" >> "$file"
         echo "✅ Added to $file"
     fi
 }
 
-# Detect shell rc
-if [[ "$SHELL" == *"zsh"* ]]; then
-    SHELL_RC="$HOME/.zshrc"
-elif [[ "$SHELL" == *"bash"* ]]; then
-    SHELL_RC="$HOME/.bash_profile"
-else
-    SHELL_RC="$HOME/.profile"
-fi
+# Detect shell RC
+if [[ "$SHELL" == *"zsh"* ]]; then SHELL_RC="$HOME/.zshrc"
+elif [[ "$SHELL" == *"bash"* ]]; then SHELL_RC="$HOME/.bash_profile"
+else SHELL_RC="$HOME/.profile"; fi
 echo "🐚 Using shell rc: $SHELL_RC"
 
-# -----------------------------
 # Xcode Command Line Tools
-# -----------------------------
 if ! xcode-select -p >/dev/null 2>&1; then
     echo "👉 Installing Xcode Command Line Tools..."
     xcode-select --install
-    echo "Please rerun this script once installation completes."
+    echo "Please rerun this script once the install completes."
     exit 0
 else
     echo "✅ Xcode Command Line Tools already installed"
 fi
 
-# -----------------------------
-# Homebrew
-# -----------------------------
+# Homebrew installation/update
 if ! command_exists brew; then
     echo "🍺 Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -65,11 +53,9 @@ else
     brew update
 fi
 
-# -----------------------------
-# Install required brew packages (official docs)
-# -----------------------------
+# Install required brew packages (without genromfs)
 echo "📦 Installing required brew packages..."
-BREW_PKGS=(genromfs gcc-arm-none-eabi gawk python@3.11 git cmake ninja ccache opencv)
+BREW_PKGS=(gcc-arm-none-eabi gawk python@3.11 git cmake ninja ccache opencv)
 for pkg in "${BREW_PKGS[@]}"; do
     if brew list "$pkg" &>/dev/null; then
         echo "  • $pkg already installed"
@@ -79,9 +65,7 @@ for pkg in "${BREW_PKGS[@]}"; do
     fi
 done
 
-# -----------------------------
 # Python setup
-# -----------------------------
 if command_exists /opt/homebrew/bin/python3.11; then
     PYTHON_CMD="/opt/homebrew/bin/python3.11"
 elif command_exists /usr/local/bin/python3.11; then
@@ -96,31 +80,14 @@ echo "🐍 Using Python: $($PYTHON_CMD --version)"
 
 $PYTHON_CMD -m pip install --upgrade pip setuptools wheel
 
-PYTHON_PKGS=(
-    empy
-    pyserial
-    pymavlink
-    future
-    lxml
-    pexpect
-    matplotlib
-    numpy
-    psutil
-    intelhex
-    geocoder
-    requests
-    paramiko
-    pynmea2
-)
+PYTHON_PKGS=(empy pyserial pymavlink future lxml pexpect matplotlib numpy psutil intelhex geocoder requests paramiko pynmea2)
 echo "📦 Installing Python packages..."
 $PYTHON_CMD -m pip install "${PYTHON_PKGS[@]}"
 
 echo "🚁 Installing MAVProxy..."
 $PYTHON_CMD -m pip install MAVProxy
 
-# -----------------------------
 # ArduPilot source
-# -----------------------------
 ARDUPILOT_DIR="$HOME/ardupilot"
 if [[ -d "$ARDUPILOT_DIR" ]]; then
     echo "📂 Updating ArduPilot repo..."
@@ -134,9 +101,7 @@ else
     cd ardupilot
 fi
 
-# -----------------------------
-# Run prereqs script (suppress /usr/local/bin noise)
-# -----------------------------
+# Run prereqs script safely
 echo "🔧 Running ArduPilot prereqs script..."
 if [[ -f "Tools/environment_install/install-prereqs-mac.sh" ]]; then
     chmod +x Tools/environment_install/install-prereqs-mac.sh
@@ -151,18 +116,14 @@ else
     echo "⚠️ Prereqs script not found, continuing..."
 fi
 
-# -----------------------------
-# Mojave SDK headers (if needed)
-# -----------------------------
+# Mojave SDK headers prompt
 OSVER=$(sw_vers -productVersion | awk -F. '{print $2}')
 if [[ $OSVER -eq 14 ]]; then
     echo "ℹ️ Mojave detected. If you see header errors, run:"
     echo "   open /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg"
 fi
 
-# -----------------------------
 # PATH setup
-# -----------------------------
 TOOLS_PATH_EXPORT="export PATH=\"\$HOME/ardupilot/Tools/autotest:\$PATH\""
 add_to_shell_rc "$TOOLS_PATH_EXPORT" "$SHELL_RC"
 add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.zshrc"
@@ -172,4 +133,4 @@ add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.profile"
 echo ""
 echo "✅ ArduPilot SITL setup complete!"
 echo "👉 Run 'source $SHELL_RC' or restart your terminal."
-echo "👉 Example: sim_vehicle.py -v ArduCopter -f quad --console --map"
+echo "👉 Example to run SITL: sim_vehicle.py -v ArduCopter -f quad --console --map"
