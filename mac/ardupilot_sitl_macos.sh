@@ -16,7 +16,7 @@ readonly NC='\033[0m' # No Color
 readonly BOLD='\033[1m'
 
 # Configuration
-readonly PYTHON_VERSION="3.11"
+# readonly PYTHON_VERSION=$()
 readonly ARDUPILOT_REPO="https://github.com/ArduPilot/ardupilot.git"
 readonly ARDUPILOT_DIR="$HOME/ardupilot"
 readonly LOG_FILE="$HOME/ardupilot_install.log"
@@ -195,7 +195,7 @@ install_brew_packages() {
 
     local packages=(
         "gawk"
-        "python@3.11"
+        "python"
         "git"
         "cmake"
         "ninja"
@@ -240,16 +240,15 @@ install_brew_packages() {
 
 setup_python() {
     info "Setting up Python environment..."
-    # Find Python 3.11
-    local python_cmd=""
-    for path in "/opt/homebrew/bin/python${PYTHON_VERSION}" "/usr/local/bin/python${PYTHON_VERSION}" "python3"; do
-        if command_exists "$path"; then
-            python_cmd="$path"
-            break
-        fi
-    done
+    local python_cmd="python3"
+    # for path in "/opt/homebrew/bin/python${PYTHON_VERSION}" "/usr/local/bin/python${PYTHON_VERSION}" "python3"; do
+    #     if command_exists "$path"; then
+    #         python_cmd="$path"
+    #         break
+    #     fi
+    # done
     if [[ -z "$python_cmd" ]]; then
-        error "Python 3 not found. Please ensure Python ${PYTHON_VERSION} is installed via Homebrew."
+        error "Python 3 not found. Please ensure Python3 is installed via Homebrew."
         exit 1
     fi
     info "Using Python: $($python_cmd --version)"
@@ -258,7 +257,7 @@ setup_python() {
     $python_cmd -m pip install --upgrade pip setuptools wheel
     # Install Python packages required for ArduPilot
     local python_packages=(
-        "empy==3.3.4"
+        "empy"
         "pyserial"
         "pymavlink"
         "future"
