@@ -155,10 +155,15 @@ echo "🔧 Installing ArduPilot prerequisites for macOS..."
 if [[ -f "Tools/environment_install/install-prereqs-mac.sh" ]]; then
     chmod +x Tools/environment_install/install-prereqs-mac.sh
     echo "📍 Running ArduPilot macOS prerequisites script..."
-    # Run with error handling - the prerequisites script sometimes has issues
+
+    # Fix: make sure /usr/local/bin exists so prereqs script doesn't error
+    if [[ ! -d /usr/local/bin ]]; then
+        echo "📍 Creating /usr/local/bin to satisfy prereqs script..."
+        sudo mkdir -p /usr/local/bin
+    fi
+
     if ! Tools/environment_install/install-prereqs-mac.sh -y; then
         echo "⚠️  ArduPilot prerequisites script encountered issues, but continuing..."
-        echo "   This is often normal and doesn't prevent SITL from working."
     fi
 else
     echo "⚠️  macOS prerequisites script not found, continuing..."
