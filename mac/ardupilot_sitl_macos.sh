@@ -135,46 +135,30 @@ install_homebrew() {
 
 install_gcc_arm() {
     info "Installing ARM GCC toolchain..."
-    # Method 1: Try homebrew first
-    if brew list gcc-arm-none-eabi &>/dev/null; then
-        info "gcc-arm-none-eabi already installed via Homebrew"
+
+    # Check if arm-none-eabi-gcc is already in PATH
+    if command -v arm-none-eabi-gcc >/dev/null 2>&1; then
+        info "ARM GCC toolchain is already installed: $(arm-none-eabi-gcc --version | head -1)"
         return 0
     fi
-    log "Attempting to install gcc-arm-none-eabi via Homebrew..."
-    if brew install --cask gcc-arm-embedded 2>/dev/null; then
-        success "gcc-arm-none-eabi installed via Homebrew"
-        return 0
-    fi
-    warn "Homebrew installation failed, trying alternative methods..."
-    # Method 2: Try ARM's official tap
-    log "Adding ARM's official Homebrew tap..."
-    if brew tap ArmMbed/homebrew-formulae 2>/dev/null; then
-        log "Trying to install from ARM's tap..."
-        if brew install ArmMbed/homebrew-formulae/arm-none-eabi-gcc 2>/dev/null; then
-            success "ARM GCC installed from ARM's official tap"
-            return 0
-        fi
-    fi
-    # Method 3: Direct download and install (updated for Apple Silicon)
-    warn "Homebrew methods failed, attempting direct download..."
-    local gcc_version="10.3-2021.10"
-    local download_url=""
+
+    # Set the installation directory
     local install_dir="/opt/gcc-arm-none-eabi"
-    if [[ "$ARCH" == "arm64" ]]; then
-        download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac-arm64.tar.bz2"
-    else
-        download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac.tar.bz2"
-    fi
-    log "Downloading ARM GCC toolchain..."
     local temp_dir="/tmp/gcc-arm-install"
     mkdir -p "$temp_dir"
-    if curl -L "$download_url" -o "$temp_dir/gcc-arm.tar.bz2"; then
+
+    # Determine the correct download URL based on architecture
+    local download_url="https://developer.arm.com/-/media/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-darwin-arm64-arm-none-eabi.tar.xz"
+
+    # Download the toolchain
+    log "Downloading ARM GCC toolchain from $download_url..."
+    if curl -L "$download_url" -o "$temp_dir/gcc-arm.tar.xz"; then
         log "Extracting ARM GCC toolchain..."
         cd "$temp_dir"
-        if tar -xjf gcc-arm.tar.bz2; then
+        if tar -xf gcc-arm.tar.xz; then
             log "Installing to $install_dir..."
             sudo mkdir -p "$install_dir"
-            local extracted_dir=$(find . -name "gcc-arm-none-eabi-*" -type d | head -1)
+            local extracted_dir=$(find . -name "arm-gnu-toolchain-*" -type d | head -1)
             if [[ -n "$extracted_dir" ]]; then
                 sudo cp -R "$extracted_dir"/* "$install_dir/"
                 sudo chmod -R 755 "$install_dir"
@@ -183,16 +167,26 @@ install_gcc_arm() {
                 add_to_path "$gcc_path_export" "$(get_shell_rc)"
                 # Source immediately
                 export PATH="$install_dir/bin:$PATH"
-                success "ARM GCC toolchain installed manually to $install_dir"
+                success "ARM GCC toolchain installed to $install_dir"
                 rm -rf "$temp_dir"
                 return 0
+            else
+                error "Failed to find extracted toolchain directory"
+                rm -rf "$temp_dir"
+                return 1
             fi
+        else
+            error "Failed to extract ARM GCC toolchain"
+            rm -rf "$temp_dir"
+            return 1
         fi
+    else
+        error "Failed to download ARM GCC toolchain"
+        rm -rf "$temp_dir"
+        return 1
     fi
-    error "All ARM GCC installation methods failed"
-    rm -rf "$temp_dir"
-    return 1
 }
+
 
 install_brew_packages() {
     info "Installing required Homebrew packages..."
