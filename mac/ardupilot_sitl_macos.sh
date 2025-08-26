@@ -22,6 +22,9 @@ readonly PYTHON_VERSION="3.11"
 readonly ARDUPILOT_REPO="https://github.com/ArduPilot/ardupilot.git"
 readonly ARDUPILOT_DIR="$HOME/ardupilot"
 readonly LOG_FILE="$HOME/ardupilot_install.log"
+readonly BUILD_TARGET="CubeOrange"
+readonly VEHICLE="plane"
+readonly FIRMWARE_DIR="$HOME/ArduPlane_CubeOrange_Firmware"
 
 # System info
 readonly MACOS_VERSION=$(sw_vers -productVersion)
@@ -293,25 +296,44 @@ run_prereqs_script() {
 }
 
 setup_build_environment() {
-    info "Setting up build environment..."
+    info "Setting up build environment for ArduPlane on CubeOrange..."
 
     cd "$ARDUPILOT_DIR"
 
-    # Configure waf
-    log "Configuring build system..."
-    if ./waf configure; then
-        success "Build system configured successfully"
+    # Clean any previous builds
+    log "Cleaning previous builds..."
+    ./waf distclean
+
+    # Configure waf for CubeOrange
+    log "Configuring build system for CubeOrange target..."
+    if ./waf configure --board "$BUILD_TARGET"; then
+        success "Build system configured for $BUILD_TARGET"
     else
-        warn "Build configuration had issues, continuing..."
+        error "Build configuration failed for $BUILD_TARGET"
+        info "Available boards can be listed with: ./waf list_boards"
+        exit 1
     fi
 
-    # Test build for ArduCopter
-    log "Testing build (this may take several minutes)..."
-    if ./waf copter; then
-        success "Test build completed successfully"
+    # Build ArduPlane for CubeOrange
+    log "Building ArduPlane for CubeOrange (this may take 5-10 minutes)..."
+    if ./waf "$VEHICLE"; then
+        success "ArduPlane build completed successfully"
+
+        # Create firmware directory and copy files
+        mkdir -p "$FIRMWARE_DIR"
+
+        # Copy the built firmware files
+        local build_dir="build/$BUILD_TARGET/bin"
+        if [[ -d "$build_dir" ]]; then
+            cp "$build_dir"/*.apj "$FIRMWARE_DIR"/ 2>/dev/null || warn "No .apj files found"
+            cp "$build_dir"/*.hex "$FIRMWARE_DIR"/ 2>/dev/null || warn "No .hex files found"
+            cp "$build_dir"/*.bin "$FIRMWARE_DIR"/ 2>/dev/null || warn "No .bin files found"
+            success "Firmware files copied to $FIRMWARE_DIR"
+        fi
     else
-        error "Build test failed. Check the logs above."
-        info "You can try running './waf distclean' and './waf configure' manually"
+        error "ArduPlane build failed. Check the logs above."
+        info "You can try running './waf distclean' and './waf configure --board $BUILD_TARGET' manually"
+        exit 1
     fi
 }
 
@@ -340,7 +362,7 @@ handle_mojave_specifics() {
 }
 
 test_installation() {
-    info "Testing ArduPilot SITL installation..."
+    info "Testing ArduPilot installation and build..."
 
     # Source the shell rc to get updated PATH
     local shell_rc
@@ -364,40 +386,70 @@ test_installation() {
     else
         warn "MAVProxy not found in PATH"
     fi
+
+    # Check if firmware was built successfully
+    if [[ -d "$FIRMWARE_DIR" ]] && [[ -n "$(find "$FIRMWARE_DIR" -name "*.apj" -o -name "*.hex" 2>/dev/null)" ]]; then
+        success "ArduPlane firmware for CubeOrange built successfully"
+        info "Firmware files located in: $FIRMWARE_DIR"
+    else
+        warn "Firmware files not found. Build may have failed."
+    fi
 }
 
 show_usage_instructions() {
     echo ""
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}${BOLD}                    ArduPilot SITL Installation Complete!${NC}"
+    echo -e "${CYAN}${BOLD}           ArduPilot Installation Complete - CubeOrange Ready!${NC}"
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${YELLOW}${BOLD}Next Steps:${NC}"
+    echo -e "${YELLOW}${BOLD}ArduPlane Firmware Built for CubeOrange:${NC}"
+    echo -e "${GREEN}•${NC} Target: ${BLUE}$BUILD_TARGET${NC}"
+    echo -e "${GREEN}•${NC} Firmware location: ${BLUE}$FIRMWARE_DIR${NC}"
     echo ""
-    echo -e "${GREEN}1.${NC} Restart your terminal or run:"
+
+    if [[ -d "$FIRMWARE_DIR" ]]; then
+        echo -e "${YELLOW}${BOLD}Available Firmware Files:${NC}"
+        find "$FIRMWARE_DIR" -name "*.apj" -o -name "*.hex" -o -name "*.bin" | while read -r file; do
+            echo -e "${GREEN}•${NC} $(basename "$file")"
+        done
+        echo ""
+    fi
+
+    echo -e "${YELLOW}${BOLD}Next Steps for CubeOrange:${NC}"
+    echo ""
+    echo -e "${GREEN}1.${NC} Upload firmware to CubeOrange using Mission Planner or QGroundControl:"
+    echo -e "   ${BLUE}Use the .apj file for automatic upload${NC}"
+    echo -e "   ${BLUE}Use the .hex file for manual flashing${NC}"
+    echo ""
+    echo -e "${GREEN}2.${NC} For SITL testing, restart your terminal or run:"
     echo -e "   ${BLUE}source $(get_shell_rc)${NC}"
     echo ""
-    echo -e "${GREEN}2.${NC} Navigate to a vehicle directory:"
-    echo -e "   ${BLUE}cd $ARDUPILOT_DIR/ArduCopter${NC}"
+    echo -e "${GREEN}3.${NC} Test ArduPlane SITL simulation:"
+    echo -e "   ${BLUE}cd $ARDUPILOT_DIR/ArduPlane${NC}"
+    echo -e "   ${BLUE}sim_vehicle.py -v ArduPlane -f plane --console --map${NC}"
     echo ""
-    echo -e "${GREEN}3.${NC} Start the simulator:"
-    echo -e "   ${BLUE}sim_vehicle.py -v ArduCopter -f quad --console --map${NC}"
+    echo -e "${YELLOW}${BOLD}Rebuilding Firmware:${NC}"
+    echo -e "${GREEN}•${NC} Clean build: ${BLUE}cd $ARDUPILOT_DIR && ./waf distclean${NC}"
+    echo -e "${GREEN}•${NC} Configure: ${BLUE}./waf configure --board $BUILD_TARGET${NC}"
+    echo -e "${GREEN}•${NC} Build: ${BLUE}./waf $VEHICLE${NC}"
     echo ""
-    echo -e "${YELLOW}${BOLD}Other Examples:${NC}"
-    echo -e "${GREEN}•${NC} ArduPlane: ${BLUE}cd $ARDUPILOT_DIR/ArduPlane && sim_vehicle.py -v ArduPlane --console --map${NC}"
-    echo -e "${GREEN}•${NC} ArduRover: ${BLUE}cd $ARDUPILOT_DIR/Rover && sim_vehicle.py -v APMrover2 --console --map${NC}"
-    echo -e "${GREEN}•${NC} ArduSub: ${BLUE}cd $ARDUPILOT_DIR/ArduSub && sim_vehicle.py -v ArduSub --console --map${NC}"
+    echo -e "${YELLOW}${BOLD}Other Build Targets:${NC}"
+    echo -e "${GREEN}•${NC} List all boards: ${BLUE}cd $ARDUPILOT_DIR && ./waf list_boards${NC}"
+    echo -e "${GREEN}•${NC} CubeOrange variants: ${BLUE}CubeOrange, CubeOrange, CubeOrange-periph${NC}"
     echo ""
     echo -e "${YELLOW}${BOLD}Useful Commands:${NC}"
-    echo -e "${GREEN}•${NC} Clean build: ${BLUE}cd $ARDUPILOT_DIR && ./waf distclean${NC}"
     echo -e "${GREEN}•${NC} Update ArduPilot: ${BLUE}cd $ARDUPILOT_DIR && git pull && git submodule update --recursive${NC}"
-    echo -e "${GREEN}•${NC} MAVProxy help: ${BLUE}mavproxy.py --help${NC}"
+    echo -e "${GREEN}•${NC} Build for other vehicles:"
+    echo -e "   ${BLUE}./waf copter${NC} (ArduCopter)"
+    echo -e "   ${BLUE}./waf rover${NC} (ArduRover)"
+    echo -e "   ${BLUE}./waf sub${NC} (ArduSub)"
     echo ""
     echo -e "${YELLOW}${BOLD}Documentation:${NC}"
-    echo -e "${GREEN}•${NC} SITL Guide: ${BLUE}https://ardupilot.org/dev/docs/SITL-setup-landingpage.html${NC}"
-    echo -e "${GREEN}•${NC} Building: ${BLUE}https://ardupilot.org/dev/docs/building-the-code.html${NC}"
+    echo -e "${GREEN}•${NC} CubeOrange Guide: ${BLUE}https://ardupilot.org/copter/docs/common-thecubeorange-overview.html${NC}"
+    echo -e "${GREEN}•${NC} ArduPlane Docs: ${BLUE}https://ardupilot.org/plane/${NC}"
+    echo -e "${GREEN}•${NC} Building Guide: ${BLUE}https://ardupilot.org/dev/docs/building-the-code.html${NC}"
     echo ""
-    echo -e "${GREEN}${BOLD}Installation log saved to: ${BLUE}$LOG_FILE${NC}"
+    echo -e "${GREEN}${BOLD}Installation log saved to: ${BLUE}$BUILD_LOG${NC}"
     echo ""
 }
 
@@ -406,11 +458,13 @@ main() {
     echo "ArduPilot SITL Installation Log - $(date)" > "$LOG_FILE"
 
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}${BOLD}            ArduPilot SITL Installer for macOS${NC}"
+    echo -e "${CYAN}${BOLD}        ArduPlane CubeOrange Builder & SITL Installer for macOS${NC}"
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    info "Starting ArduPilot SITL installation..."
+    info "Starting ArduPlane CubeOrange build and SITL setup..."
+    info "Target Hardware: CubeOrange Flight Controller"
+    info "Vehicle: ArduPlane"
     info "macOS Version: $MACOS_VERSION"
     info "Architecture: $ARCH"
     info "Shell: $SHELL_NAME"
@@ -431,7 +485,7 @@ main() {
     handle_mojave_specifics
     test_installation
 
-    success "ArduPilot SITL installation completed successfully!"
+    success "ArduPlane CubeOrange build and SITL installation completed successfully!"
     show_usage_instructions
 }
 
