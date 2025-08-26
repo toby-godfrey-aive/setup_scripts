@@ -192,9 +192,10 @@ install_brew_packages() {
     info "Installing required Homebrew packages..."
     # Install ARM GCC with fallback methods
     install_gcc_arm
+
     local packages=(
         "gawk"
-        "python@${PYTHON_VERSION}"
+        "python@3.11"
         "git"
         "cmake"
         "ninja"
@@ -202,23 +203,29 @@ install_brew_packages() {
         "opencv"
         "genromfs"
     )
+
     for package in "${packages[@]}"; do
         if brew list "$package" &>/dev/null; then
             info "$package already installed"
         else
             log "Installing $package..."
-            if brew install "$package"; then
-                success "$package installed"
-            else
-                warn "$package installation failed, continuing..."
+            if ! brew install "$package"; then
+                warn "$package installation failed, retrying..."
+                if ! brew install "$package"; then
+                    error "$package installation failed after retry"
+                    exit 1
+                fi
             fi
+            success "$package installed"
         fi
     done
+
     # Special handling for binutils removal (Mojave compatibility)
     if brew list binutils &>/dev/null; then
         warn "Removing binutils to prevent build issues on modern macOS..."
         brew uninstall binutils || warn "Failed to remove binutils, continuing..."
     fi
+
     # Verify ARM GCC installation
     if command -v arm-none-eabi-gcc >/dev/null 2>&1; then
         local gcc_version
@@ -229,6 +236,7 @@ install_brew_packages() {
         info "You may need to restart your terminal or source your shell config"
     fi
 }
+
 
 setup_python() {
     info "Setting up Python environment..."
