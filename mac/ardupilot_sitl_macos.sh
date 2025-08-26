@@ -1,11 +1,9 @@
 #!/bin/bash
-
 # ArduPilot SITL (Software In The Loop) Installer for macOS
-# This script automatically sets up the complete ArduPilot SITL environment
+# Updated for Apple Silicon (M1/M2) compatibility
 # Compatible with macOS 10.14+ (Mojave and later)
 # Author: Auto-generated script based on ArduPilot documentation
-# Version: 2.0
-
+# Version: 2.1
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 # Colors and formatting
@@ -69,7 +67,6 @@ get_shell_rc() {
 add_to_path() {
     local path_line="$1"
     local shell_rc="$2"
-
     if [[ -f "$shell_rc" ]] && ! grep -Fxq "$path_line" "$shell_rc"; then
         echo "$path_line" >> "$shell_rc"
         success "Added PATH export to $shell_rc"
@@ -83,17 +80,14 @@ add_to_path() {
 
 check_system_requirements() {
     info "Checking system requirements..."
-
     # Check macOS version
     if [[ $MAJOR_VERSION -lt 10 ]] || [[ $MAJOR_VERSION -eq 10 && $MINOR_VERSION -lt 14 ]]; then
         error "macOS 10.14 (Mojave) or later required. Current version: $MACOS_VERSION"
         exit 1
     fi
-
     success "macOS version $MACOS_VERSION is supported"
     info "Architecture: $ARCH"
     info "Shell: $SHELL_NAME"
-
     # Check for Apple Silicon specific notes
     if [[ "$ARCH" == "arm64" ]]; then
         info "Apple Silicon (M1/M2) detected - using optimized installation paths"
@@ -104,11 +98,9 @@ check_system_requirements() {
 
 install_xcode_tools() {
     info "Checking Xcode Command Line Tools..."
-
     if ! xcode-select -p >/dev/null 2>&1; then
         log "Installing Xcode Command Line Tools..."
         xcode-select --install
-
         echo ""
         echo -e "${YELLOW}${BOLD}IMPORTANT:${NC}"
         echo "Please complete the Xcode Command Line Tools installation"
@@ -122,11 +114,9 @@ install_xcode_tools() {
 
 install_homebrew() {
     info "Checking Homebrew installation..."
-
     if ! command_exists brew; then
         log "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
         # Add Homebrew to PATH based on architecture
         if [[ "$ARCH" == "arm64" ]]; then
             eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -135,7 +125,6 @@ install_homebrew() {
             eval "$(/usr/local/bin/brew shellenv)"
             add_to_path 'eval "$(/usr/local/bin/brew shellenv)"' "$(get_shell_rc)"
         fi
-
         success "Homebrew installed successfully"
     else
         info "Updating Homebrew..."
@@ -146,21 +135,17 @@ install_homebrew() {
 
 install_gcc_arm() {
     info "Installing ARM GCC toolchain..."
-
     # Method 1: Try homebrew first
     if brew list gcc-arm-none-eabi &>/dev/null; then
         info "gcc-arm-none-eabi already installed via Homebrew"
         return 0
     fi
-
     log "Attempting to install gcc-arm-none-eabi via Homebrew..."
     if brew install gcc-arm-none-eabi 2>/dev/null; then
         success "gcc-arm-none-eabi installed via Homebrew"
         return 0
     fi
-
     warn "Homebrew installation failed, trying alternative methods..."
-
     # Method 2: Try ARM's official tap
     log "Adding ARM's official Homebrew tap..."
     if brew tap ArmMbed/homebrew-formulae 2>/dev/null; then
@@ -170,50 +155,40 @@ install_gcc_arm() {
             return 0
         fi
     fi
-
-    # Method 3: Direct download and install
+    # Method 3: Direct download and install (updated for Apple Silicon)
     warn "Homebrew methods failed, attempting direct download..."
     local gcc_version="10.3-2021.10"
     local download_url=""
     local install_dir="/opt/gcc-arm-none-eabi"
-
     if [[ "$ARCH" == "arm64" ]]; then
-        download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac.tar.bz2"
+        download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac-arm64.tar.bz2"
     else
         download_url="https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-mac.tar.bz2"
     fi
-
     log "Downloading ARM GCC toolchain..."
     local temp_dir="/tmp/gcc-arm-install"
     mkdir -p "$temp_dir"
-
     if curl -L "$download_url" -o "$temp_dir/gcc-arm.tar.bz2"; then
         log "Extracting ARM GCC toolchain..."
         cd "$temp_dir"
-
         if tar -xjf gcc-arm.tar.bz2; then
             log "Installing to $install_dir..."
             sudo mkdir -p "$install_dir"
             local extracted_dir=$(find . -name "gcc-arm-none-eabi-*" -type d | head -1)
-
             if [[ -n "$extracted_dir" ]]; then
                 sudo cp -R "$extracted_dir"/* "$install_dir/"
                 sudo chmod -R 755 "$install_dir"
-
                 # Add to PATH
                 local gcc_path_export="export PATH=\"$install_dir/bin:\$PATH\""
                 add_to_path "$gcc_path_export" "$(get_shell_rc)"
-
                 # Source immediately
                 export PATH="$install_dir/bin:$PATH"
-
                 success "ARM GCC toolchain installed manually to $install_dir"
                 rm -rf "$temp_dir"
                 return 0
             fi
         fi
     fi
-
     error "All ARM GCC installation methods failed"
     rm -rf "$temp_dir"
     return 1
@@ -221,10 +196,8 @@ install_gcc_arm() {
 
 install_brew_packages() {
     info "Installing required Homebrew packages..."
-
     # Install ARM GCC with fallback methods
     install_gcc_arm
-
     local packages=(
         "gawk"
         "python@${PYTHON_VERSION}"
@@ -235,7 +208,6 @@ install_brew_packages() {
         "opencv"
         "genromfs"
     )
-
     for package in "${packages[@]}"; do
         if brew list "$package" &>/dev/null; then
             info "$package already installed"
@@ -248,13 +220,11 @@ install_brew_packages() {
             fi
         fi
     done
-
     # Special handling for binutils removal (Mojave compatibility)
     if brew list binutils &>/dev/null; then
         warn "Removing binutils to prevent build issues on modern macOS..."
         brew uninstall binutils || warn "Failed to remove binutils, continuing..."
     fi
-
     # Verify ARM GCC installation
     if command -v arm-none-eabi-gcc >/dev/null 2>&1; then
         local gcc_version
@@ -268,7 +238,6 @@ install_brew_packages() {
 
 setup_python() {
     info "Setting up Python environment..."
-
     # Find Python 3.11
     local python_cmd=""
     for path in "/opt/homebrew/bin/python${PYTHON_VERSION}" "/usr/local/bin/python${PYTHON_VERSION}" "python3"; do
@@ -277,18 +246,14 @@ setup_python() {
             break
         fi
     done
-
     if [[ -z "$python_cmd" ]]; then
         error "Python 3 not found. Please ensure Python ${PYTHON_VERSION} is installed via Homebrew."
         exit 1
     fi
-
     info "Using Python: $($python_cmd --version)"
-
     # Upgrade pip
     log "Upgrading pip and essential packages..."
     $python_cmd -m pip install --upgrade pip setuptools wheel
-
     # Install Python packages required for ArduPilot
     local python_packages=(
         "empy"
@@ -308,7 +273,6 @@ setup_python() {
         "wxpython"
         "billiard"
     )
-
     info "Installing Python packages for ArduPilot..."
     for package in "${python_packages[@]}"; do
         log "Installing $package..."
@@ -318,7 +282,6 @@ setup_python() {
             warn "$package installation failed, continuing..."
         fi
     done
-
     # Install MAVProxy
     log "Installing MAVProxy..."
     if $python_cmd -m pip install MAVProxy; then
@@ -331,11 +294,9 @@ setup_python() {
 
 clone_ardupilot() {
     info "Setting up ArduPilot source code..."
-
     if [[ -d "$ARDUPILOT_DIR" ]]; then
         log "Updating existing ArduPilot repository..."
         cd "$ARDUPILOT_DIR"
-
         # Check if it's a git repository
         if [[ -d ".git" ]]; then
             git fetch origin
@@ -356,19 +317,15 @@ clone_ardupilot() {
         git clone --recurse-submodules "$ARDUPILOT_REPO"
         success "ArduPilot repository cloned"
     fi
-
     cd "$ARDUPILOT_DIR"
 }
 
 run_prereqs_script() {
     info "Running ArduPilot prerequisites script..."
-
     local prereqs_script="Tools/environment_install/install-prereqs-mac.sh"
-
     if [[ -f "$prereqs_script" ]]; then
         chmod +x "$prereqs_script"
         log "Executing ArduPilot prereqs script..."
-
         # Run with error handling
         if ./"$prereqs_script" -y 2>"$HOME/prereqs_errors.log"; then
             success "ArduPilot prerequisites script completed successfully"
@@ -381,7 +338,6 @@ run_prereqs_script() {
                 fi
             fi
         fi
-
         # Cleanup
         rm -f "$HOME/prereqs_errors.log"
     else
@@ -391,13 +347,10 @@ run_prereqs_script() {
 
 setup_build_environment() {
     info "Setting up build environment for ArduPlane on CubeOrange..."
-
     cd "$ARDUPILOT_DIR"
-
     # Clean any previous builds
     log "Cleaning previous builds..."
     ./waf distclean
-
     # Configure waf for CubeOrange
     log "Configuring build system for CubeOrange target..."
     if ./waf configure --board "$BUILD_TARGET"; then
@@ -407,15 +360,12 @@ setup_build_environment() {
         info "Available boards can be listed with: ./waf list_boards"
         exit 1
     fi
-
     # Build ArduPlane for CubeOrange
     log "Building ArduPlane for CubeOrange (this may take 5-10 minutes)..."
     if ./waf "$VEHICLE"; then
         success "ArduPlane build completed successfully"
-
         # Create firmware directory and copy files
         mkdir -p "$FIRMWARE_DIR"
-
         # Copy the built firmware files
         local build_dir="build/$BUILD_TARGET/bin"
         if [[ -d "$build_dir" ]]; then
@@ -433,18 +383,14 @@ setup_build_environment() {
 
 setup_path_environment() {
     info "Setting up PATH environment..."
-
     local tools_path="export PATH=\"\$HOME/ardupilot/Tools/autotest:\$PATH\""
     local shell_files=("$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.profile")
-
     # Add to all common shell configuration files
     for shell_file in "${shell_files[@]}"; do
         add_to_path "$tools_path" "$shell_file"
     done
-
     # Also add to current shell rc
     add_to_path "$tools_path" "$(get_shell_rc)"
-
     success "PATH environment configured"
 }
 
@@ -457,30 +403,25 @@ handle_mojave_specifics() {
 
 test_installation() {
     info "Testing ArduPilot installation and build..."
-
     # Source the shell rc to get updated PATH
     local shell_rc
     shell_rc="$(get_shell_rc)"
-
     if [[ -f "$shell_rc" ]]; then
         # shellcheck source=/dev/null
         source "$shell_rc" 2>/dev/null || true
     fi
-
     # Test sim_vehicle.py
     if command_exists sim_vehicle.py; then
         success "sim_vehicle.py is available in PATH"
     else
         warn "sim_vehicle.py not found in PATH. You may need to restart your terminal."
     fi
-
     # Test MAVProxy
     if command_exists mavproxy.py; then
         success "MAVProxy is available"
     else
         warn "MAVProxy not found in PATH"
     fi
-
     # Check if firmware was built successfully
     if [[ -d "$FIRMWARE_DIR" ]] && [[ -n "$(find "$FIRMWARE_DIR" -name "*.apj" -o -name "*.hex" 2>/dev/null)" ]]; then
         success "ArduPlane firmware for CubeOrange built successfully"
@@ -500,7 +441,6 @@ show_usage_instructions() {
     echo -e "${GREEN}•${NC} Target: ${BLUE}$BUILD_TARGET${NC}"
     echo -e "${GREEN}•${NC} Firmware location: ${BLUE}$FIRMWARE_DIR${NC}"
     echo ""
-
     if [[ -d "$FIRMWARE_DIR" ]]; then
         echo -e "${YELLOW}${BOLD}Available Firmware Files:${NC}"
         find "$FIRMWARE_DIR" -name "*.apj" -o -name "*.hex" -o -name "*.bin" | while read -r file; do
@@ -508,7 +448,6 @@ show_usage_instructions() {
         done
         echo ""
     fi
-
     echo -e "${YELLOW}${BOLD}Next Steps for CubeOrange:${NC}"
     echo ""
     echo -e "${GREEN}1.${NC} Upload firmware to CubeOrange using Mission Planner or QGroundControl:"
@@ -547,19 +486,17 @@ show_usage_instructions() {
     echo -e "${GREEN}•${NC} ArduPlane Docs: ${BLUE}https://ardupilot.org/plane/${NC}"
     echo -e "${GREEN}•${NC} Building Guide: ${BLUE}https://ardupilot.org/dev/docs/building-the-code.html${NC}"
     echo ""
-    echo -e "${GREEN}${BOLD}Installation log saved to: ${BLUE}$BUILD_LOG${NC}"
+    echo -e "${GREEN}${BOLD}Installation log saved to: ${BLUE}$LOG_FILE${NC}"
     echo ""
 }
 
 main() {
     # Initialize log file
     echo "ArduPilot SITL Installation Log - $(date)" > "$LOG_FILE"
-
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}${BOLD}        ArduPlane CubeOrange Builder & SITL Installer for macOS${NC}"
     echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-
     info "Starting ArduPlane CubeOrange build and SITL setup..."
     info "Target Hardware: CubeOrange Flight Controller"
     info "Vehicle: ArduPlane"
@@ -569,7 +506,6 @@ main() {
     info "User: $USER"
     info "Home: $HOME"
     echo ""
-
     # Installation steps
     check_system_requirements
     install_xcode_tools
@@ -582,7 +518,6 @@ main() {
     setup_path_environment
     handle_mojave_specifics
     test_installation
-
     success "ArduPlane CubeOrange build and SITL installation completed successfully!"
     show_usage_instructions
 }
