@@ -143,7 +143,7 @@ install_gcc_arm() {
     fi
 
     # Set the installation directory
-    local install_dir="/opt/gcc-arm-none-eabi"
+    local install_dir="$HOME/gcc-arm-none-eabi"
     local temp_dir="/tmp/gcc-arm-install"
     mkdir -p "$temp_dir"
 
