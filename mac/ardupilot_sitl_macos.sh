@@ -254,7 +254,8 @@ setup_python() {
     info "Using Python: $($python_cmd --version)"
     # Upgrade pip
     log "Upgrading pip and essential packages..."
-    $python_cmd -m pip install --upgrade pip setuptools wheel
+    local pip_cmd="/opt/homebrew/bin/pip3"
+    $pip_cmd install --upgrade pip setuptools wheel
     # Install Python packages required for ArduPilot
     local python_packages=(
         "empy"
@@ -277,7 +278,7 @@ setup_python() {
     info "Installing Python packages for ArduPilot..."
     for package in "${python_packages[@]}"; do
         log "Installing $package..."
-        if $python_cmd -m pip install "$package"; then
+        if $pip_cmd install "$package"; then
             success "$package installed"
         else
             warn "$package installation failed, continuing..."
@@ -285,7 +286,7 @@ setup_python() {
     done
     # Install MAVProxy
     log "Installing MAVProxy..."
-    if $python_cmd -m pip install MAVProxy; then
+    if $pip_cmd install MAVProxy; then
         success "MAVProxy installed successfully"
     else
         error "MAVProxy installation failed"
