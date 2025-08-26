@@ -258,7 +258,7 @@ setup_python() {
     $python_cmd -m pip install --upgrade pip setuptools wheel
     # Install Python packages required for ArduPilot
     local python_packages=(
-        "empy"
+        "empy==3.3.4"
         "pyserial"
         "pymavlink"
         "future"
