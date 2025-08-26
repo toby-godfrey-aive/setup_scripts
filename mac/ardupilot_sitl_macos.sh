@@ -240,22 +240,31 @@ install_brew_packages() {
 
 setup_python() {
     info "Setting up Python environment..."
-    local python_cmd="python3"
-    # for path in "/opt/homebrew/bin/python${PYTHON_VERSION}" "/usr/local/bin/python${PYTHON_VERSION}" "python3"; do
-    #     if command_exists "$path"; then
-    #         python_cmd="$path"
-    #         break
-    #     fi
-    # done
-    if [[ -z "$python_cmd" ]]; then
-        error "Python 3 not found. Please ensure Python3 is installed via Homebrew."
+    # Use the Homebrew-installed Python
+    local python_cmd="/opt/homebrew/bin/python3"
+    local pip_cmd="/opt/homebrew/bin/pip3"
+
+    # Check if Homebrew Python is available
+    if ! command_exists "$python_cmd"; then
+        error "Homebrew Python not found. Please install Python via Homebrew: brew install python"
         exit 1
     fi
+
     info "Using Python: $($python_cmd --version)"
-    # Upgrade pip
-    log "Upgrading pip and essential packages..."
-    local pip_cmd="/opt/homebrew/bin/pip3"
-    $pip_cmd install --upgrade pip setuptools wheel
+
+    # Create a virtual environment
+    local venv_dir="$HOME/ardupilot_venv"
+    log "Creating Python virtual environment at $venv_dir..."
+    $python_cmd -m venv "$venv_dir"
+
+    # Activate the virtual environment
+    log "Activating virtual environment..."
+    source "$venv_dir/bin/activate"
+
+    # Upgrade pip in the virtual environment
+    log "Upgrading pip..."
+    pip install --upgrade pip setuptools wheel
+
     # Install Python packages required for ArduPilot
     local python_packages=(
         "empy"
@@ -275,24 +284,27 @@ setup_python() {
         "wxpython"
         "billiard"
     )
+
     info "Installing Python packages for ArduPilot..."
     for package in "${python_packages[@]}"; do
         log "Installing $package..."
-        if $pip_cmd install "$package"; then
+        if pip install "$package"; then
             success "$package installed"
         else
             warn "$package installation failed, continuing..."
         fi
     done
+
     # Install MAVProxy
     log "Installing MAVProxy..."
-    if $pip_cmd install MAVProxy; then
+    if pip install MAVProxy; then
         success "MAVProxy installed successfully"
     else
         error "MAVProxy installation failed"
         exit 1
     fi
 }
+
 
 clone_ardupilot() {
     info "Setting up ArduPilot source code..."
@@ -350,9 +362,18 @@ run_prereqs_script() {
 setup_build_environment() {
     info "Setting up build environment for ArduPlane on CubeOrange..."
     cd "$ARDUPILOT_DIR"
+
+    # Activate the virtual environment
+    local venv_dir="$HOME/ardupilot_venv"
+    source "$venv_dir/bin/activate"
+
+    # Set the Python version for waf
+    export PYTHON="$venv_dir/bin/python"
+
     # Clean any previous builds
     log "Cleaning previous builds..."
     ./waf distclean
+
     # Configure waf for CubeOrange
     log "Configuring build system for CubeOrange target..."
     if ./waf configure --board "$BUILD_TARGET"; then
@@ -362,6 +383,7 @@ setup_build_environment() {
         info "Available boards can be listed with: ./waf list_boards"
         exit 1
     fi
+
     # Build ArduPlane for CubeOrange
     log "Building ArduPlane for CubeOrange (this may take 5-10 minutes)..."
     if ./waf "$VEHICLE"; then
@@ -382,6 +404,7 @@ setup_build_environment() {
         exit 1
     fi
 }
+
 
 setup_path_environment() {
     info "Setting up PATH environment..."
