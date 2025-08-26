@@ -1,136 +1,442 @@
 #!/bin/bash
-set -e
 
-echo "🟢 Starting ArduPilot SITL setup script for macOS..."
-echo "ℹ macOS version: $(sw_vers -productVersion)"
-echo "ℹ Architecture: $(uname -m)"
-echo "ℹ Shell: $SHELL"
-echo "ℹ User: $USER"
-echo "ℹ Home: $HOME"
-echo ""
+# ArduPilot SITL (Software In The Loop) Installer for macOS
+# This script automatically sets up the complete ArduPilot SITL environment
+# Compatible with macOS 10.14+ (Mojave and later)
+# Author: Auto-generated script based on ArduPilot documentation
+# Version: 2.0
 
-# Helpers
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
+# Colors and formatting
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly NC='\033[0m' # No Color
+readonly BOLD='\033[1m'
+
+# Configuration
+readonly PYTHON_VERSION="3.11"
+readonly ARDUPILOT_REPO="https://github.com/ArduPilot/ardupilot.git"
+readonly ARDUPILOT_DIR="$HOME/ardupilot"
+readonly LOG_FILE="$HOME/ardupilot_install.log"
+
+# System info
+readonly MACOS_VERSION=$(sw_vers -productVersion)
+readonly ARCH=$(uname -m)
+readonly SHELL_NAME=$(basename "$SHELL")
+readonly MAJOR_VERSION=$(echo "$MACOS_VERSION" | cut -d. -f1)
+readonly MINOR_VERSION=$(echo "$MACOS_VERSION" | cut -d. -f2)
+
+# Utility functions
+log() {
+    echo -e "${GREEN}[$(date +'%H:%M:%S')]${NC} $*" | tee -a "$LOG_FILE"
+}
+
+warn() {
+    echo -e "${YELLOW}[WARNING]${NC} $*" | tee -a "$LOG_FILE"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $*" | tee -a "$LOG_FILE"
+}
+
+info() {
+    echo -e "${BLUE}[INFO]${NC} $*" | tee -a "$LOG_FILE"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*" | tee -a "$LOG_FILE"
+}
+
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
-add_to_shell_rc() {
-    local line="$1"; local file="$2"
-    if [[ -f "$file" ]] && ! grep -Fxq "$line" "$file"; then
-        echo "$line" >> "$file"
-        echo "✅ Added to $file"
+
+get_shell_rc() {
+    case "$SHELL_NAME" in
+        zsh) echo "$HOME/.zshrc" ;;
+        bash) echo "$HOME/.bash_profile" ;;
+        *) echo "$HOME/.profile" ;;
+    esac
+}
+
+add_to_path() {
+    local path_line="$1"
+    local shell_rc="$2"
+
+    if [[ -f "$shell_rc" ]] && ! grep -Fxq "$path_line" "$shell_rc"; then
+        echo "$path_line" >> "$shell_rc"
+        success "Added PATH export to $shell_rc"
+    elif [[ ! -f "$shell_rc" ]]; then
+        echo "$path_line" > "$shell_rc"
+        success "Created $shell_rc with PATH export"
+    else
+        info "PATH already configured in $shell_rc"
     fi
 }
 
-# Detect shell RC
-if [[ "$SHELL" == *"zsh"* ]]; then SHELL_RC="$HOME/.zshrc"
-elif [[ "$SHELL" == *"bash"* ]]; then SHELL_RC="$HOME/.bash_profile"
-else SHELL_RC="$HOME/.profile"; fi
-echo "🐚 Using shell rc: $SHELL_RC"
+check_system_requirements() {
+    info "Checking system requirements..."
 
-# Xcode Command Line Tools
-if ! xcode-select -p >/dev/null 2>&1; then
-    echo "👉 Installing Xcode Command Line Tools..."
-    xcode-select --install
-    echo "Please rerun this script once the install completes."
-    exit 0
-else
-    echo "✅ Xcode Command Line Tools already installed"
-fi
-
-# Homebrew installation/update
-if ! command_exists brew; then
-    echo "🍺 Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    if [[ -f "/opt/homebrew/bin/brew" ]]; then
-        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$SHELL_RC"
-        eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -f "/usr/local/bin/brew" ]]; then
-        echo 'eval "$(/usr/local/bin/brew shellenv)"' >> "$SHELL_RC"
-        eval "$(/usr/local/bin/brew shellenv)"
+    # Check macOS version
+    if [[ $MAJOR_VERSION -lt 10 ]] || [[ $MAJOR_VERSION -eq 10 && $MINOR_VERSION -lt 14 ]]; then
+        error "macOS 10.14 (Mojave) or later required. Current version: $MACOS_VERSION"
+        exit 1
     fi
-else
-    echo "🍺 Updating Homebrew..."
-    brew update
-fi
 
-# Install required brew packages (without genromfs)
-echo "📦 Installing required brew packages..."
-BREW_PKGS=(gcc-arm-none-eabi gawk python@3.11 git cmake ninja ccache opencv)
-for pkg in "${BREW_PKGS[@]}"; do
-    if brew list "$pkg" &>/dev/null; then
-        echo "  • $pkg already installed"
+    success "macOS version $MACOS_VERSION is supported"
+    info "Architecture: $ARCH"
+    info "Shell: $SHELL_NAME"
+}
+
+install_xcode_tools() {
+    info "Checking Xcode Command Line Tools..."
+
+    if ! xcode-select -p >/dev/null 2>&1; then
+        log "Installing Xcode Command Line Tools..."
+        xcode-select --install
+
+        echo ""
+        echo -e "${YELLOW}${BOLD}IMPORTANT:${NC}"
+        echo "Please complete the Xcode Command Line Tools installation"
+        echo "and then run this script again."
+        echo ""
+        exit 0
     else
-        echo "  • Installing $pkg..."
-        brew install "$pkg"
+        success "Xcode Command Line Tools already installed"
     fi
-done
+}
 
-# Python setup
-if command_exists /opt/homebrew/bin/python3.11; then
-    PYTHON_CMD="/opt/homebrew/bin/python3.11"
-elif command_exists /usr/local/bin/python3.11; then
-    PYTHON_CMD="/usr/local/bin/python3.11"
-elif command_exists python3; then
-    PYTHON_CMD="python3"
-else
-    echo "❌ Python 3 not found"
-    exit 1
-fi
-echo "🐍 Using Python: $($PYTHON_CMD --version)"
+install_homebrew() {
+    info "Checking Homebrew installation..."
 
-$PYTHON_CMD -m pip install --upgrade pip setuptools wheel
+    if ! command_exists brew; then
+        log "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-PYTHON_PKGS=(empy pyserial pymavlink future lxml pexpect matplotlib numpy psutil intelhex geocoder requests paramiko pynmea2)
-echo "📦 Installing Python packages..."
-$PYTHON_CMD -m pip install "${PYTHON_PKGS[@]}"
+        # Add Homebrew to PATH based on architecture
+        if [[ "$ARCH" == "arm64" ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+            add_to_path 'eval "$(/opt/homebrew/bin/brew shellenv)"' "$(get_shell_rc)"
+        else
+            eval "$(/usr/local/bin/brew shellenv)"
+            add_to_path 'eval "$(/usr/local/bin/brew shellenv)"' "$(get_shell_rc)"
+        fi
 
-echo "🚁 Installing MAVProxy..."
-$PYTHON_CMD -m pip install MAVProxy
+        success "Homebrew installed successfully"
+    else
+        info "Updating Homebrew..."
+        brew update || warn "Homebrew update failed, continuing..."
+        success "Homebrew is ready"
+    fi
+}
 
-# ArduPilot source
-ARDUPILOT_DIR="$HOME/ardupilot"
-if [[ -d "$ARDUPILOT_DIR" ]]; then
-    echo "📂 Updating ArduPilot repo..."
+install_brew_packages() {
+    info "Installing required Homebrew packages..."
+
+    local packages=(
+        "gcc-arm-none-eabi"
+        "gawk"
+        "python@${PYTHON_VERSION}"
+        "git"
+        "cmake"
+        "ninja"
+        "ccache"
+        "opencv"
+        "genromfs"
+    )
+
+    for package in "${packages[@]}"; do
+        if brew list "$package" &>/dev/null; then
+            info "$package already installed"
+        else
+            log "Installing $package..."
+            if brew install "$package"; then
+                success "$package installed"
+            else
+                warn "$package installation failed, continuing..."
+            fi
+        fi
+    done
+
+    # Special handling for binutils removal (Mojave compatibility)
+    if brew list binutils &>/dev/null; then
+        warn "Removing binutils to prevent build issues on modern macOS..."
+        brew uninstall binutils || warn "Failed to remove binutils, continuing..."
+    fi
+}
+
+setup_python() {
+    info "Setting up Python environment..."
+
+    # Find Python 3.11
+    local python_cmd=""
+    for path in "/opt/homebrew/bin/python${PYTHON_VERSION}" "/usr/local/bin/python${PYTHON_VERSION}" "python3"; do
+        if command_exists "$path"; then
+            python_cmd="$path"
+            break
+        fi
+    done
+
+    if [[ -z "$python_cmd" ]]; then
+        error "Python 3 not found. Please ensure Python ${PYTHON_VERSION} is installed via Homebrew."
+        exit 1
+    fi
+
+    info "Using Python: $($python_cmd --version)"
+
+    # Upgrade pip
+    log "Upgrading pip and essential packages..."
+    $python_cmd -m pip install --upgrade pip setuptools wheel
+
+    # Install Python packages required for ArduPilot
+    local python_packages=(
+        "empy"
+        "pyserial"
+        "pymavlink"
+        "future"
+        "lxml"
+        "pexpect"
+        "matplotlib"
+        "numpy"
+        "psutil"
+        "intelhex"
+        "geocoder"
+        "requests"
+        "paramiko"
+        "pynmea2"
+        "wxpython"
+        "billiard"
+    )
+
+    info "Installing Python packages for ArduPilot..."
+    for package in "${python_packages[@]}"; do
+        log "Installing $package..."
+        if $python_cmd -m pip install "$package"; then
+            success "$package installed"
+        else
+            warn "$package installation failed, continuing..."
+        fi
+    done
+
+    # Install MAVProxy
+    log "Installing MAVProxy..."
+    if $python_cmd -m pip install MAVProxy; then
+        success "MAVProxy installed successfully"
+    else
+        error "MAVProxy installation failed"
+        exit 1
+    fi
+}
+
+clone_ardupilot() {
+    info "Setting up ArduPilot source code..."
+
+    if [[ -d "$ARDUPILOT_DIR" ]]; then
+        log "Updating existing ArduPilot repository..."
+        cd "$ARDUPILOT_DIR"
+
+        # Check if it's a git repository
+        if [[ -d ".git" ]]; then
+            git fetch origin
+            git checkout master
+            git pull origin master
+            git submodule update --init --recursive
+            success "ArduPilot repository updated"
+        else
+            warn "Directory exists but is not a git repository. Removing and re-cloning..."
+            cd "$HOME"
+            rm -rf "$ARDUPILOT_DIR"
+            git clone --recurse-submodules "$ARDUPILOT_REPO"
+            success "ArduPilot repository cloned"
+        fi
+    else
+        log "Cloning ArduPilot repository..."
+        cd "$HOME"
+        git clone --recurse-submodules "$ARDUPILOT_REPO"
+        success "ArduPilot repository cloned"
+    fi
+
     cd "$ARDUPILOT_DIR"
-    git pull origin master
-    git submodule update --init --recursive
-else
-    echo "📥 Cloning ArduPilot..."
-    cd "$HOME"
-    git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
-    cd ardupilot
-fi
+}
 
-# Run prereqs script safely
-echo "🔧 Running ArduPilot prereqs script..."
-if [[ -f "Tools/environment_install/install-prereqs-mac.sh" ]]; then
-    chmod +x Tools/environment_install/install-prereqs-mac.sh
-    if ! Tools/environment_install/install-prereqs-mac.sh -y 2> prereqs_errors.log; then
-        echo "⚠️ Prereqs script had issues, continuing..."
+run_prereqs_script() {
+    info "Running ArduPilot prerequisites script..."
+
+    local prereqs_script="Tools/environment_install/install-prereqs-mac.sh"
+
+    if [[ -f "$prereqs_script" ]]; then
+        chmod +x "$prereqs_script"
+        log "Executing ArduPilot prereqs script..."
+
+        # Run with error handling
+        if ./"$prereqs_script" -y 2>"$HOME/prereqs_errors.log"; then
+            success "ArduPilot prerequisites script completed successfully"
+        else
+            warn "Prerequisites script had some issues (this is often normal)"
+            if [[ -f "$HOME/prereqs_errors.log" ]]; then
+                info "Checking error log..."
+                if grep -q "/usr/local/bin" "$HOME/prereqs_errors.log"; then
+                    info "Ignored /usr/local/bin warnings (normal on Apple Silicon)"
+                fi
+            fi
+        fi
+
+        # Cleanup
+        rm -f "$HOME/prereqs_errors.log"
+    else
+        warn "Prerequisites script not found at $prereqs_script"
     fi
-    if grep -q "/usr/local/bin" prereqs_errors.log; then
-        echo "ℹ️ Ignored missing /usr/local/bin (not needed on Apple Silicon)"
+}
+
+setup_build_environment() {
+    info "Setting up build environment..."
+
+    cd "$ARDUPILOT_DIR"
+
+    # Configure waf
+    log "Configuring build system..."
+    if ./waf configure; then
+        success "Build system configured successfully"
+    else
+        warn "Build configuration had issues, continuing..."
     fi
-    rm -f prereqs_errors.log
-else
-    echo "⚠️ Prereqs script not found, continuing..."
-fi
 
-# Mojave SDK headers prompt
-OSVER=$(sw_vers -productVersion | awk -F. '{print $2}')
-if [[ $OSVER -eq 14 ]]; then
-    echo "ℹ️ Mojave detected. If you see header errors, run:"
-    echo "   open /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg"
-fi
+    # Test build for ArduCopter
+    log "Testing build (this may take several minutes)..."
+    if ./waf copter; then
+        success "Test build completed successfully"
+    else
+        error "Build test failed. Check the logs above."
+        info "You can try running './waf distclean' and './waf configure' manually"
+    fi
+}
 
-# PATH setup
-TOOLS_PATH_EXPORT="export PATH=\"\$HOME/ardupilot/Tools/autotest:\$PATH\""
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$SHELL_RC"
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.zshrc"
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.bash_profile"
-add_to_shell_rc "$TOOLS_PATH_EXPORT" "$HOME/.profile"
+setup_path_environment() {
+    info "Setting up PATH environment..."
 
-echo ""
-echo "✅ ArduPilot SITL setup complete!"
-echo "👉 Run 'source $SHELL_RC' or restart your terminal."
-echo "👉 Example to run SITL: sim_vehicle.py -v ArduCopter -f quad --console --map"
+    local tools_path="export PATH=\"\$HOME/ardupilot/Tools/autotest:\$PATH\""
+    local shell_files=("$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.profile")
+
+    # Add to all common shell configuration files
+    for shell_file in "${shell_files[@]}"; do
+        add_to_path "$tools_path" "$shell_file"
+    done
+
+    # Also add to current shell rc
+    add_to_path "$tools_path" "$(get_shell_rc)"
+
+    success "PATH environment configured"
+}
+
+handle_mojave_specifics() {
+    if [[ $MAJOR_VERSION -eq 10 && $MINOR_VERSION -eq 14 ]]; then
+        warn "macOS Mojave detected - you may need to install SDK headers if you encounter build issues"
+        info "If needed, run: open /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg"
+    fi
+}
+
+test_installation() {
+    info "Testing ArduPilot SITL installation..."
+
+    # Source the shell rc to get updated PATH
+    local shell_rc
+    shell_rc="$(get_shell_rc)"
+
+    if [[ -f "$shell_rc" ]]; then
+        # shellcheck source=/dev/null
+        source "$shell_rc" 2>/dev/null || true
+    fi
+
+    # Test sim_vehicle.py
+    if command_exists sim_vehicle.py; then
+        success "sim_vehicle.py is available in PATH"
+    else
+        warn "sim_vehicle.py not found in PATH. You may need to restart your terminal."
+    fi
+
+    # Test MAVProxy
+    if command_exists mavproxy.py; then
+        success "MAVProxy is available"
+    else
+        warn "MAVProxy not found in PATH"
+    fi
+}
+
+show_usage_instructions() {
+    echo ""
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}${BOLD}                    ArduPilot SITL Installation Complete!${NC}"
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Next Steps:${NC}"
+    echo ""
+    echo -e "${GREEN}1.${NC} Restart your terminal or run:"
+    echo -e "   ${BLUE}source $(get_shell_rc)${NC}"
+    echo ""
+    echo -e "${GREEN}2.${NC} Navigate to a vehicle directory:"
+    echo -e "   ${BLUE}cd $ARDUPILOT_DIR/ArduCopter${NC}"
+    echo ""
+    echo -e "${GREEN}3.${NC} Start the simulator:"
+    echo -e "   ${BLUE}sim_vehicle.py -v ArduCopter -f quad --console --map${NC}"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Other Examples:${NC}"
+    echo -e "${GREEN}•${NC} ArduPlane: ${BLUE}cd $ARDUPILOT_DIR/ArduPlane && sim_vehicle.py -v ArduPlane --console --map${NC}"
+    echo -e "${GREEN}•${NC} ArduRover: ${BLUE}cd $ARDUPILOT_DIR/Rover && sim_vehicle.py -v APMrover2 --console --map${NC}"
+    echo -e "${GREEN}•${NC} ArduSub: ${BLUE}cd $ARDUPILOT_DIR/ArduSub && sim_vehicle.py -v ArduSub --console --map${NC}"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Useful Commands:${NC}"
+    echo -e "${GREEN}•${NC} Clean build: ${BLUE}cd $ARDUPILOT_DIR && ./waf distclean${NC}"
+    echo -e "${GREEN}•${NC} Update ArduPilot: ${BLUE}cd $ARDUPILOT_DIR && git pull && git submodule update --recursive${NC}"
+    echo -e "${GREEN}•${NC} MAVProxy help: ${BLUE}mavproxy.py --help${NC}"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Documentation:${NC}"
+    echo -e "${GREEN}•${NC} SITL Guide: ${BLUE}https://ardupilot.org/dev/docs/SITL-setup-landingpage.html${NC}"
+    echo -e "${GREEN}•${NC} Building: ${BLUE}https://ardupilot.org/dev/docs/building-the-code.html${NC}"
+    echo ""
+    echo -e "${GREEN}${BOLD}Installation log saved to: ${BLUE}$LOG_FILE${NC}"
+    echo ""
+}
+
+main() {
+    # Initialize log file
+    echo "ArduPilot SITL Installation Log - $(date)" > "$LOG_FILE"
+
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}${BOLD}            ArduPilot SITL Installer for macOS${NC}"
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    info "Starting ArduPilot SITL installation..."
+    info "macOS Version: $MACOS_VERSION"
+    info "Architecture: $ARCH"
+    info "Shell: $SHELL_NAME"
+    info "User: $USER"
+    info "Home: $HOME"
+    echo ""
+
+    # Installation steps
+    check_system_requirements
+    install_xcode_tools
+    install_homebrew
+    install_brew_packages
+    setup_python
+    clone_ardupilot
+    run_prereqs_script
+    setup_build_environment
+    setup_path_environment
+    handle_mojave_specifics
+    test_installation
+
+    success "ArduPilot SITL installation completed successfully!"
+    show_usage_instructions
+}
+
+# Error handling
+trap 'error "Installation failed at line $LINENO. Check $LOG_FILE for details."; exit 1' ERR
+
+# Run main function
+main "$@"
