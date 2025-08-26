@@ -157,11 +157,11 @@ install_gcc_arm() {
         cd "$temp_dir"
         if tar -xf gcc-arm.tar.xz; then
             log "Installing to $install_dir..."
-            sudo mkdir -p "$install_dir"
+            mkdir -p "$install_dir"
             local extracted_dir=$(find . -name "arm-gnu-toolchain-*" -type d | head -1)
             if [[ -n "$extracted_dir" ]]; then
-                sudo cp -R "$extracted_dir"/* "$install_dir/"
-                sudo chmod -R 755 "$install_dir"
+                cp -R "$extracted_dir"/* "$install_dir/"
+                chmod -R u+x "$install_dir"
                 # Add to PATH
                 local gcc_path_export="export PATH=\"$install_dir/bin:\$PATH\""
                 add_to_path "$gcc_path_export" "$(get_shell_rc)"
