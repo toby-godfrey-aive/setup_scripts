@@ -54,6 +54,7 @@ fi
 # --- Step 2: Clone GitHub Repos and run pixi install ---
 REPOS=(
   "git@github.com:AIVE-Systems/mavlink_dds_compatibility_node.git"
+  "git@github.com:AIVE-Systems/software_launch_scripts.git"
   # Add more repositories here
 )
 
@@ -70,7 +71,7 @@ for REPO_URL in "${REPOS[@]}"; do
   echo "📦 Installing dependencies in $REPO_NAME..."
   cd "$REPO_NAME"
   git submodule update --init --recursive
-  pixi install
+  pixi install || true
   cd ..
 done
 
