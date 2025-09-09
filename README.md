@@ -1,6 +1,7 @@
 # Installation Scripts
 
 This repository provides setup scripts for macOS and Ubuntu.
+
 The installer handles environment setup, dependencies, and optional installation of ArduPilot SITL.
 
 ## Structure
