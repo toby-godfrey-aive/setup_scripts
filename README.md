@@ -22,6 +22,92 @@ The installer handles environment setup, dependencies, and optional installation
 - `haris_*.sh` – sets up project-specific software.
 - `ardupilot_sitl_*.sh` – installs and configures ArduPilot SITL (optional).
 
+## Prerequisites
+
+An SSH key must be added to GitHub before using these scripts.
+
+Here’s a fully filled-out, renumbered version of your steps:
+
+### 1. Check if an SSH key already exists
+
+List the contents of your `.ssh` directory:
+
+```bash
+ls -al ~/.ssh
+```
+
+Look for a key pair such as `id_ed25519` and `id_ed25519.pub` (preferred) or `id_rsa` and `id_rsa.pub`.
+
+If **none** exist, generate a new key.
+
+### 2. Generate a new SSH key pair
+
+Run the following command, replacing the email with the one associated with your GitHub account or some other useful comment:
+
+```bash
+ssh-keygen -t ed25519 -C "your_email@example.com"
+```
+
+If your system does not support Ed25519, use RSA:
+
+```bash
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+
+Press **Enter** to accept the default location (`~/.ssh/id_ed25519`) and optionally enter a passphrase for security.
+
+### 3. Start the SSH agent
+
+Ensure the SSH agent is running:
+
+```bash
+eval "$(ssh-agent -s)"
+```
+
+Then add your newly created key to the agent:
+
+```bash
+ssh-add ~/.ssh/id_ed25519
+```
+
+### 4. Add the key to GitHub
+
+Copy the public key to your clipboard:
+
+- On **Linux**:
+
+  ```bash
+  cat ~/.ssh/id_ed25519.pub | xclip -selection clipboard
+  ```
+
+- On **macOS**:
+
+  ```bash
+  pbcopy < ~/.ssh/id_ed25519.pub
+  ```
+
+Then:
+
+1. Go to [GitHub → Settings → SSH and GPG keys](https://github.com/settings/keys).
+2. Click **New SSH key**.
+3. Paste the copied key into the **Key** field.
+4. Give the key a title.
+5. Click **Add SSH key**.
+
+### 5. Check access
+
+Test that the key is working with GitHub:
+
+```bash
+ssh -T git@github.com
+```
+
+You should see:
+
+```
+Hi [username]! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
 ## Usage
 
 Make the installer executable:
@@ -56,8 +142,6 @@ To include ArduPilot SITL in the setup:
 - Restart your shell or run `source ~/.zshrc` after installation to ensure changes take effect.
 
 Here’s a troubleshooting section you can append to your README:
-
----
 
 ## Troubleshooting
 
