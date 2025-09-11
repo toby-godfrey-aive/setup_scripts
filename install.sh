@@ -12,7 +12,7 @@ OS="$(uname -s)"
 case "$OS" in
     Darwin)
         echo "Detected macOS"
-        BASE_DIR="mac"
+        BASE_DIR="mac-arm"
         ;;
     Linux)
         echo "Detected Linux"
