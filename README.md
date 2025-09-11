@@ -25,6 +25,16 @@ The installer handles environment setup, dependencies, and optional installation
 
 ## Prerequisites
 
+### 1. Enable Execution
+
+To make everything executable run
+
+```bash
+chmod +x ./**/*.sh
+```
+
+### 2. GitHub SSH Key
+
 An SSH key must be added to GitHub before using these scripts.
 
 **Update: this script should now check this and create a key if necessary.**

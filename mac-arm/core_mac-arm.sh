@@ -1,61 +1,106 @@
 #!/bin/bash
-# install.sh
-# Detects the platform (macOS or Ubuntu) and runs:
-#   1. core_*.sh (sourced, so env vars persist)
-#   2. haris_*.sh
-#   3. ardupilot_sitl_*.sh (only if --sitl flag is passed)
 
-set -e
+set -e  # Exit on error
 
-INSTALL_SITL=false
+echo "🟢 Starting macOS setup script..."
 
-# Parse flags
-for arg in "$@"; do
-    case "$arg" in
-        --sitl)
-            INSTALL_SITL=true
-            shift
-            ;;
-        -h|--help)
-            echo "Usage: $0 [--sitl]"
-            echo "  --sitl   Also install ArduPilot SITL"
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $arg"
-            echo "Use --help for usage information."
-            exit 1
-            ;;
-    esac
+# Check for Homebrew and install if not present
+if ! command -v brew &> /dev/null; then
+    echo "🍺 Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    # Add Homebrew to PATH (for Apple Silicon Macs)
+    if [[ -f /opt/homebrew/bin/brew ]]; then
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    fi
+else
+    echo "🍺 Updating Homebrew..."
+    brew update
+fi
+
+cd ~
+
+# --- Step 0: Install required packages ---
+REQUIRED_PACKAGES=("git" "curl" "unzip" "openjdk@17")
+
+echo "📦 Installing required packages..."
+brew install "${REQUIRED_PACKAGES[@]}"
+
+# Set up Java 17
+echo "☕ Setting up Java 17..."
+if ! grep -q 'export JAVA_HOME=' ~/.zshrc 2>/dev/null; then
+    echo 'export JAVA_HOME="$(/opt/homebrew/bin/brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"' >> ~/.zshrc
+    echo 'export PATH="$JAVA_HOME/bin:$PATH"' >> ~/.zshrc
+fi
+export JAVA_HOME="$(/opt/homebrew/bin/brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# --- Step 1: Install Pixi if not present ---
+if ! command -v pixi &> /dev/null; then
+  echo "📦 Installing Pixi..."
+  curl -fsSL https://pixi.sh/install.sh | sh
+  export PATH="$HOME/.pixi/bin:$PATH"
+
+  # Add to shell config (using .zshrc for macOS default shell)
+  if ! grep -q 'export PATH="$HOME/.pixi/bin:$PATH"' "$HOME/.zshrc" 2>/dev/null; then
+    echo 'export PATH="$HOME/.pixi/bin:$PATH"' >> "$HOME/.zshrc"
+    echo "✅ Pixi path added to .zshrc"
+  fi
+else
+  echo "✅ Pixi already installed."
+fi
+
+# --- Step 2: Clone GitHub Repos and run pixi install ---
+REPOS=(
+  "git@github.com:AIVE-Systems/mavlink_dds_compatibility_node.git"
+  "git@github.com:AIVE-Systems/software_launch_scripts.git"
+  # Add more repositories here
+)
+
+for REPO_URL in "${REPOS[@]}"; do
+  REPO_NAME=$(basename "$REPO_URL" .git)
+
+  if [ -d "$REPO_NAME" ]; then
+    echo "📁 Repo '$REPO_NAME' already exists. Skipping clone."
+  else
+    echo "📥 Cloning $REPO_URL..."
+    git clone --recurse-submodules "$REPO_URL"
+  fi
+
+  echo "📦 Installing dependencies in $REPO_NAME..."
+  cd "$REPO_NAME"
+  git submodule update --init --recursive
+  pixi install || true
+  cd ..
 done
 
-OS="$(uname -s)"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# --- Step 3: Download zenohd router ---
+ZENOH_DIR="zenoh"
+ZENOH_BIN="${ZENOH_DIR}/zenohd"
 
-case "$OS" in
-    Darwin)
-        echo "Detected macOS"
-        BASE_DIR="mac"
-        OS_SUFFIX="macos"
-        ;;
-    Linux)
-        echo "Detected Linux"
-        BASE_DIR="ubuntu"
-        OS_SUFFIX="ubuntu"
-        ;;
-    *)
-        echo "Unsupported OS: $OS"
-        exit 1
-        ;;
-esac
-
-# Source core to persist environment changes
-source "$SCRIPT_DIR/$BASE_DIR/core_${OS_SUFFIX}.sh"
-
-# Run Haris setup
-source "$SCRIPT_DIR/$BASE_DIR/haris_${OS_SUFFIX}.sh"
-
-# Optionally run SITL setup
-if [ "$INSTALL_SITL" = true ]; then
-    source "$SCRIPT_DIR/$BASE_DIR/ardupilot_sitl_${OS_SUFFIX}.sh"
+# Determine architecture
+ARCH=$(uname -m)
+if [[ "$ARCH" == "arm64" ]]; then
+  ZENOH_ARCH="aarch64-apple-darwin"
+else
+  ZENOH_ARCH="x86_64-apple-darwin"
 fi
+
+ZENOH_URL="https://download.eclipse.org/zenoh/zenoh/latest/zenoh-1.5.0-aarch64-apple-darwin-standalone.zip"
+
+if [ -f "$ZENOH_BIN" ]; then
+  echo "✅ zenohd already exists at $ZENOH_BIN. Skipping download."
+else
+  echo "🌐 Downloading zenohd router for macOS ($ARCH)..."
+  mkdir -p "$ZENOH_DIR"
+  curl -L "$ZENOH_URL" -o "$ZENOH_DIR/zenohd.zip"
+
+  echo "📦 Unzipping zenohd..."
+  unzip -o "$ZENOH_DIR/zenohd.zip" -d "$ZENOH_DIR"
+  chmod +x "$ZENOH_BIN"
+  echo "✅ zenohd ready at $ZENOH_BIN"
+fi
+
+echo "🎉 Setup complete for macOS!"
+echo "Please restart your terminal or run 'source ~/.zshrc' to use the new environment."
