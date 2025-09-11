@@ -11,6 +11,7 @@ set -e
 GREEN="\033[0;32m"
 CYAN="\033[0;36m"
 YELLOW="\033[1;33m"
+BOLD="\033[1m"
 NC="\033[0m" # No colour
 
 INSTALL_SITL=false
@@ -53,18 +54,21 @@ case "$OS" in
         ;;
 esac
 
-# Run scripts with coloured output
-echo -e "${CYAN}Running SSH/GH setup script...${NC}"
-source "$SCRIPT_DIR/$ID/ssh_gh_${ID}.sh"
+# Function to safely source scripts without terminating main script
+source_script() {
+    local script="$1"
+    echo -e "${CYAN}${BOLD}Running $script...${NC}"
 
-echo -e "${CYAN}Running core setup script...${NC}"
-source "$SCRIPT_DIR/$ID/core_${ID}.sh"
+    # Temporarily override 'exit' to 'return' within sourced script
+    (trap 'return 1' EXIT; source "$script")
+}
 
-echo -e "${CYAN}Running Haris setup script...${NC}"
-source "$SCRIPT_DIR/$ID/haris_${ID}.sh"
+# Source scripts safely
+source_script "$SCRIPT_DIR/$ID/ssh_gh_${ID}.sh"
+source_script "$SCRIPT_DIR/$ID/core_${ID}.sh"
+source_script "$SCRIPT_DIR/$ID/haris_${ID}.sh"
 
 # Optionally run SITL setup
 if [ "$INSTALL_SITL" = true ]; then
-    echo -e "${CYAN}Running ArduPilot SITL setup script...${NC}"
-    source "$SCRIPT_DIR/$ID/ardupilot_sitl_${ID}.sh"
+    source_script "$SCRIPT_DIR/$ID/ardupilot_sitl_${ID}.sh"
 fi
