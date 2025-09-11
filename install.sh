@@ -1,6 +1,6 @@
 #!/bin/bash
 # install.sh
-# Detects platform and runs scripts safely, preserving environment updates
+# Detects platform and runs scripts safely in a login shell, preserving environment updates
 
 set -e
 
@@ -37,10 +37,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 case "$OS" in
     Darwin)
         echo -e "${GREEN}Detected macOS${NC}"
+        SHELL_CMD="zsh -l -c"
         ID="mac-arm"
         ;;
     Linux)
         echo -e "${GREEN}Detected Linux${NC}"
+        SHELL_CMD="bash -l -c"
         ID="ubuntu"
         ;;
     *)
@@ -49,8 +51,8 @@ case "$OS" in
         ;;
 esac
 
-# Function to safely source a script
-source_script() {
+# Function to run a script in a login shell
+run_script() {
     local script="$1"
     shift
     if [ ! -f "$script" ]; then
@@ -58,15 +60,15 @@ source_script() {
         return
     fi
     echo -e "${CYAN}${BOLD}Running $script with args: $* ...${NC}"
-    source "$script" "$@"
+    $SHELL_CMD "\"$script\" $*"
 }
 
 # === Run scripts ===
-source_script "$SCRIPT_DIR/$ID/ssh_gh_${ID}.sh"
-source_script "$SCRIPT_DIR/$ID/core_${ID}.sh" "$ZENOH_VERSION"
-source_script "$SCRIPT_DIR/$ID/haris_${ID}.sh"
+run_script "$SCRIPT_DIR/$ID/ssh_gh_${ID}.sh"
+run_script "$SCRIPT_DIR/$ID/core_${ID}.sh" "$ZENOH_VERSION"
+run_script "$SCRIPT_DIR/$ID/haris_${ID}.sh"
 
 # Optional SITL
 if [ "$INSTALL_SITL" = true ]; then
-    source_script "$SCRIPT_DIR/$ID/ardupilot_sitl_${ID}.sh"
+    run_script "$SCRIPT_DIR/$ID/ardupilot_sitl_${ID}.sh"
 fi
