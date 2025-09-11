@@ -20,7 +20,7 @@ PUB_KEY_PATH=""
 echo -e "${CYAN}>>> Checking if SSH authentication with GitHub already works...${NC}"
 if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
     echo -e "${GREEN}✅ SSH authentication with GitHub is already configured.${NC}"
-    return 0
+    exit 0
 fi
 
 echo -e "${YELLOW}⚠️  SSH authentication not yet configured. Proceeding with setup...${NC}"

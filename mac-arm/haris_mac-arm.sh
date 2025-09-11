@@ -24,7 +24,7 @@ elif command -v port >/dev/null 2>&1; then
 else
   echo "Neither Homebrew nor MacPorts found. Please install Homebrew first:"
   echo "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-  return 1
+  exit 1
 fi
 
 echo "Using package manager: $PKG_MANAGER"
@@ -180,7 +180,7 @@ if [ "$INSTALL_FLATC" = true ]; then
     sudo chmod +x "$TARGET_DIR/flatc"
   else
     echo "flatc binary not found in archive!"
-    return 1
+    exit 1
   fi
 
   rm -rf "$TEMP_DIR"
@@ -189,7 +189,7 @@ if [ "$INSTALL_FLATC" = true ]; then
     echo "flatc $(flatc --version) installed successfully"
   else
     echo "Failed to install flatc"
-    return 1
+    exit 1
   fi
 fi
 

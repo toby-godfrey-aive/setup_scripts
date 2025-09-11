@@ -84,7 +84,7 @@ check_system_requirements() {
     # Check macOS version
     if [[ $MAJOR_VERSION -lt 10 ]] || [[ $MAJOR_VERSION -eq 10 && $MINOR_VERSION -lt 14 ]]; then
         error "macOS 10.14 (Mojave) or later required. Current version: $MACOS_VERSION"
-        return 1
+        exit 1
     fi
     success "macOS version $MACOS_VERSION is supported"
     info "Architecture: $ARCH"
@@ -107,7 +107,7 @@ install_xcode_tools() {
         echo "Please complete the Xcode Command Line Tools installation"
         echo "and then run this script again."
         echo ""
-        return 0
+        exit 0
     else
         success "Xcode Command Line Tools already installed"
     fi
@@ -140,7 +140,7 @@ install_gcc_arm() {
     # Check if arm-none-eabi-gcc is already in PATH
     if command -v arm-none-eabi-gcc >/dev/null 2>&1; then
         info "ARM GCC toolchain is already installed: $(arm-none-eabi-gcc --version | head -1)"
-        return 0
+        exit 0
     fi
 
     # Set the installation directory
@@ -170,21 +170,21 @@ install_gcc_arm() {
                 export PATH="$install_dir/bin:$PATH"
                 success "ARM GCC toolchain installed to $install_dir"
                 rm -rf "$temp_dir"
-                return 0
+                exit 0
             else
                 error "Failed to find extracted toolchain directory"
                 rm -rf "$temp_dir"
-                return 1
+                exit 1
             fi
         else
             error "Failed to extract ARM GCC toolchain"
             rm -rf "$temp_dir"
-            return 1
+            exit 1
         fi
     else
         error "Failed to download ARM GCC toolchain"
         rm -rf "$temp_dir"
-        return 1
+        exit 1
     fi
 }
 
@@ -216,7 +216,7 @@ install_brew_packages() {
                 warn "$package installation failed, retrying..."
                 if ! brew install "$package"; then
                     error "$package installation failed after retry"
-                    return 1
+                    exit 1
                 fi
             fi
             success "$package installed"
@@ -250,7 +250,7 @@ setup_python() {
     # Check if Homebrew Python is available
     if ! command_exists "$python_cmd"; then
         error "Homebrew Python not found. Please install Python via Homebrew: brew install python"
-        return 1
+        exit 1
     fi
 
     info "Using Python: $($python_cmd --version)"
@@ -305,7 +305,7 @@ setup_python() {
         success "MAVProxy installed successfully"
     else
         error "MAVProxy installation failed"
-        return 1
+        exit 1
     fi
 }
 
@@ -385,7 +385,7 @@ setup_build_environment() {
     else
         error "Build configuration failed for $BUILD_TARGET"
         info "Available boards can be listed with: ./waf list_boards"
-        return 1
+        exit 1
     fi
 
     # Build ArduPlane for CubeOrange
@@ -405,7 +405,7 @@ setup_build_environment() {
     else
         error "ArduPlane build failed. Check the logs above."
         info "You can try running './waf distclean' and './waf configure --board $BUILD_TARGET' manually"
-        return 1
+        exit 1
     fi
 }
 
@@ -591,7 +591,7 @@ main() {
 }
 
 # Error handling
-trap 'error "Installation failed at line $LINENO. Check $LOG_FILE for details."; return 1' ERR
+trap 'error "Installation failed at line $LINENO. Check $LOG_FILE for details."; exit 1' ERR
 
 # Run main function
 main "$@"
