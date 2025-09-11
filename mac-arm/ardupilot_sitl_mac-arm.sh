@@ -140,7 +140,7 @@ install_gcc_arm() {
     # Check if arm-none-eabi-gcc is already in PATH
     if command -v arm-none-eabi-gcc >/dev/null 2>&1; then
         info "ARM GCC toolchain is already installed: $(arm-none-eabi-gcc --version | head -1)"
-        exit 0
+        return 0
     fi
 
     # Set the installation directory
