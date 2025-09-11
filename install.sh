@@ -1,9 +1,6 @@
 #!/bin/bash
 # install.sh
-# Detects the platform (macOS or Ubuntu) and runs:
-#   1. core_*.sh (sourced, so env vars persist)
-#   2. haris_*.sh
-#   3. ardupilot_sitl_*.sh (only if --sitl flag is passed)
+# Detects platform and runs scripts safely, preserving environment updates
 
 set -e
 
@@ -12,17 +9,14 @@ GREEN="\033[0;32m"
 CYAN="\033[0;36m"
 YELLOW="\033[1;33m"
 BOLD="\033[1m"
-NC="\033[0m" # No colour
+NC="\033[0m"
 
 INSTALL_SITL=false
 
 # Parse flags
 for arg in "$@"; do
     case "$arg" in
-        --sitl)
-            INSTALL_SITL=true
-            shift
-            ;;
+        --sitl) INSTALL_SITL=true ;;
         -h|--help)
             echo -e "${CYAN}Usage: $0 [--sitl]${NC}"
             echo -e "${CYAN}  --sitl   Also install ArduPilot SITL${NC}"
@@ -30,7 +24,6 @@ for arg in "$@"; do
             ;;
         *)
             echo -e "${YELLOW}Unknown option: $arg${NC}"
-            echo -e "Use --help for usage information."
             exit 1
             ;;
     esac
@@ -54,21 +47,23 @@ case "$OS" in
         ;;
 esac
 
-# Function to safely source scripts without terminating main script
+# Function to safely source a script
 source_script() {
     local script="$1"
+    if [ ! -f "$script" ]; then
+        echo -e "${YELLOW}Warning: $script not found. Skipping.${NC}"
+        return
+    fi
     echo -e "${CYAN}${BOLD}Running $script...${NC}"
-
-    # Temporarily override 'exit' to 'return' within sourced script
-    (trap 'return 1' EXIT; source "$script")
+    source "$script"
 }
 
-# Source scripts safely
+# === Run scripts ===
 source_script "$SCRIPT_DIR/$ID/ssh_gh_${ID}.sh"
 source_script "$SCRIPT_DIR/$ID/core_${ID}.sh"
 source_script "$SCRIPT_DIR/$ID/haris_${ID}.sh"
 
-# Optionally run SITL setup
+# Optional SITL
 if [ "$INSTALL_SITL" = true ]; then
     source_script "$SCRIPT_DIR/$ID/ardupilot_sitl_${ID}.sh"
 fi

@@ -49,7 +49,7 @@ else
     sudo apt install -y flatbuffers-compiler
   else
     echo "Please install 'flatc' manually from https://github.com/google/flatbuffers/releases"
-    exit 1
+    return 1
   fi
 fi
 
