@@ -4,6 +4,14 @@ set -e  # Exit on error
 
 echo "🟢 Starting macOS setup script..."
 
+# --- Parse arguments ---
+if [ -z "$1" ]; then
+  echo "❌ Usage: $0 <ZENOH_VERSION>"
+  exit 1
+fi
+
+ZENOH_VERSION="$1"
+
 # Check for Homebrew and install if not present
 if ! command -v brew &> /dev/null; then
     echo "🍺 Installing Homebrew..."
@@ -87,7 +95,7 @@ else
   ZENOH_ARCH="x86_64-apple-darwin"
 fi
 
-ZENOH_URL="https://download.eclipse.org/zenoh/zenoh/latest/zenoh-1.5.0-aarch64-apple-darwin-standalone.zip"
+ZENOH_URL="https://eclipse.mirror.garr.it/zenoh/zenoh/${ZENOH_VERSION}/zenoh-${ZENOH_VERSION}-aarch64-apple-darwin-standalone.zip"
 
 if [ -f "$ZENOH_BIN" ]; then
   echo "✅ zenohd already exists at $ZENOH_BIN. Skipping download."

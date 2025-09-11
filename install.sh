@@ -4,6 +4,8 @@
 
 set -e
 
+ZENOH_VERSION="1.5.1"
+
 # Colour codes
 GREEN="\033[0;32m"
 CYAN="\033[0;36m"
@@ -50,17 +52,18 @@ esac
 # Function to safely source a script
 source_script() {
     local script="$1"
+    shift
     if [ ! -f "$script" ]; then
         echo -e "${YELLOW}Warning: $script not found. Skipping.${NC}"
         return
     fi
-    echo -e "${CYAN}${BOLD}Running $script...${NC}"
-    source "$script"
+    echo -e "${CYAN}${BOLD}Running $script with args: $* ...${NC}"
+    source "$script" "$@"
 }
 
 # === Run scripts ===
 source_script "$SCRIPT_DIR/$ID/ssh_gh_${ID}.sh"
-source_script "$SCRIPT_DIR/$ID/core_${ID}.sh"
+source_script "$SCRIPT_DIR/$ID/core_${ID}.sh" "$ZENOH_VERSION"
 source_script "$SCRIPT_DIR/$ID/haris_${ID}.sh"
 
 # Optional SITL

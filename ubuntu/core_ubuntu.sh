@@ -4,6 +4,14 @@ set -e  # Exit on error
 
 echo "🟢 Starting Ubuntu setup script..."
 
+# --- Parse arguments ---
+if [ -z "$1" ]; then
+  echo "❌ Usage: $0 <ZENOH_VERSION>"
+  exit 1
+fi
+
+ZENOH_VERSION="$1"
+
 sudo apt-get update
 sudo apt-get upgrade -y
 
@@ -63,7 +71,8 @@ done
 # --- Step 3: Download zenohd router ---
 ZENOH_DIR="zenoh"
 ZENOH_BIN="${ZENOH_DIR}/zenohd"
-ZENOH_URL="https://download.eclipse.org/zenoh/zenoh/latest/zenoh-1.5.0-x86_64-unknown-linux-gnu-standalone.zip"
+ZENOH_URL="https://eclipse.mirror.garr.it/zenoh/zenoh/${ZENOH_VERSION}/zenoh-${ZENOH_VERSION}-x86_64-unknown-linux-gnu-standalone.zip"
+
 
 if [ -f "$ZENOH_BIN" ]; then
   echo "✅ zenohd already exists at $ZENOH_BIN. Skipping download."
