@@ -26,6 +26,7 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-bash "$SCRIPT_DIR/$BASE_DIR/core_${BASE_DIR}.sh"
-bash "$SCRIPT_DIR/$BASE_DIR/haris_${BASE_DIR}.sh"
-bash "$SCRIPT_DIR/$BASE_DIR/ardupilot_sitl_${BASE_DIR}.sh"
+source "$SCRIPT_DIR/$BASE_DIR/ssh_gh_${BASE_DIR}.sh"
+source "$SCRIPT_DIR/$BASE_DIR/core_${BASE_DIR}.sh"
+source "$SCRIPT_DIR/$BASE_DIR/haris_${BASE_DIR}.sh"
+source "$SCRIPT_DIR/$BASE_DIR/ardupilot_sitl_${BASE_DIR}.sh"

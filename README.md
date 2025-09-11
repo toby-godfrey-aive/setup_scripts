@@ -27,6 +27,8 @@ The installer handles environment setup, dependencies, and optional installation
 
 An SSH key must be added to GitHub before using these scripts.
 
+**Update: this script should now check this and create a key if necessary.**
+
 Here’s a fully filled-out, renumbered version of your steps:
 
 ### 1. Check if an SSH key already exists
