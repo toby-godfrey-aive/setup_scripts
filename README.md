@@ -4,19 +4,38 @@ This repository provides setup scripts for macOS and Ubuntu.
 
 The installer handles environment setup, dependencies, and optional installation of ArduPilot SITL.
 
+## TL;DR
+
+To run the auto-installer:
+
+```bash
+./install.sh
+```
+
+To include installing the ArduPilot SITL:
+
+```bash
+./install --sitl
+```
+
+This will check for GitHub SSH access, make a new key and wait for manual registration if required, install the required packages, DDS, and the requested repos, then install HARIS, and finally, if requested, install the ArudPilot SITL
+
 ## Structure
 
 ```
 .
 ├── install.sh
-├── mac
-│ ├── core_macos.sh
-│ ├── haris_macos.sh
-│ └── ardupilot_sitl_macos.sh
+├── mac-arm
+│   ├── ardupilot_sitl_mac-arm.sh
+│   ├── core_mac-arm.sh
+│   ├── haris_mac-arm.sh
+│   └── ssh_gh_mac-arm.sh
+├── README.md
 └── ubuntu
-├── core_ubuntu.sh
-├── haris_ubuntu.sh
-└── ardupilot_sitl_ubuntu.sh
+    ├── ardupilot_sitl_ubuntu.sh
+    ├── core_ubuntu.sh
+    ├── haris_ubuntu.sh
+    └── ssh_gh_ubuntu.sh
 ```
 
 - `core_*.sh` – installs required packages, tools, and dependencies.
